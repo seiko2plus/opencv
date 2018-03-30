@@ -44,7 +44,7 @@ PERF_TEST_P( TestWarpAffine, WarpAffine,
 #ifdef __ANDROID__
     SANITY_CHECK(dst, interType==INTER_LINEAR? 5 : 10);
 #else
-    SANITY_CHECK(dst, 1);
+    SANITY_CHECK(dst, 1, ERROR_RELATIVE);
 #endif
 }
 
@@ -74,7 +74,7 @@ PERF_TEST_P(TestWarpAffine, WarpAffine_ovx,
 #ifdef __ANDROID__
     SANITY_CHECK(dst, interType == INTER_LINEAR ? 5 : 10);
 #else
-    SANITY_CHECK(dst, 1);
+    SANITY_CHECK(dst, 1, ERROR_RELATIVE);
 #endif
 }
 
@@ -112,7 +112,7 @@ PERF_TEST_P( TestWarpPerspective, WarpPerspective,
 #ifdef __ANDROID__
     SANITY_CHECK(dst, interType==INTER_LINEAR? 5 : 10);
 #else
-    SANITY_CHECK(dst, 1);
+    SANITY_CHECK(dst, 1, ERROR_RELATIVE);
 #endif
 }
 
@@ -196,7 +196,7 @@ PERF_TEST_P( TestWarpPerspectiveNear_t, WarpPerspectiveNear,
 #ifdef __ANDROID__
     SANITY_CHECK(dst, interType==INTER_LINEAR? 5 : 10);
 #else
-    SANITY_CHECK(dst, 1);
+    SANITY_CHECK(dst, 1, ERROR_RELATIVE);
 #endif
 }
 
@@ -231,7 +231,7 @@ PERF_TEST_P( TestRemap, remap,
         remap(source, destination, map_x, map_y, interpolationType, borderMode);
     }
 
-    SANITY_CHECK(destination, 1);
+    SANITY_CHECK(destination, 1, ERROR_RELATIVE);
 }
 
 void update_map(const Mat& src, Mat& map_x, Mat& map_y, const int remapMode )

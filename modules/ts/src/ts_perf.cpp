@@ -353,6 +353,53 @@ void Regression::write(cv::Mat m)
     write() << "val" << getElem(m, y, x, cn) << "}";
 }
 
+#define OVER_EPS(name,eps) (eps < fabs(actual_##name - expect_##name))
+void Regression::verifyLoose(cv::FileNode node, cv::Mat actual, double eps, std::string argname, ERROR_TYPE err)
+{
+    if (!actual.empty() && actual.dims < 2) return;
+
+    double expect_min = (double)node["min"];
+    double expect_max = (double)node["max"];
+
+    if (err == ERROR_RELATIVE)
+        eps *= std::max(std::abs(expect_min), std::abs(expect_max));
+
+    double actual_min, actual_max;
+    cv::minMaxIdx(actual, &actual_min, &actual_max);
+
+    cv::FileNode last = node["last"];
+    double actual_last = getElem(actual, actual.size.p[0] - 1, actual.size.p[1] - 1, actual.channels() - 1);
+    int expect_cols = (int)last["x"] + 1;
+    int expect_rows = (int)last["y"] + 1;
+    ASSERT_EQ(expect_cols, actual.size.p[1])
+        << argname << " has unexpected number of columns" << std::endl;
+    ASSERT_EQ(expect_rows, actual.size.p[0])
+        << argname << " has unexpected number of rows" << std::endl;
+
+    double expect_last = (double)last["val"];
+
+    cv::FileNode rng1 = node["rng1"];
+    int x1 = rng1["x"];
+    int y1 = rng1["y"];
+    int cn1 = rng1["cn"];
+
+    double expect_rng1 = (double)rng1["val"];
+    // it is safe to use x1 and y1 without checks here because we have already
+    // verified that mat size is the same as recorded
+    double actual_rng1 = getElem(actual, y1, x1, cn1);
+
+    cv::FileNode rng2 = node["rng2"];
+    int x2 = rng2["x"];
+    int y2 = rng2["y"];
+    int cn2 = rng2["cn"];
+
+    double expect_rng2 = (double)rng2["val"];
+    double actual_rng2 = getElem(actual, y2, x2, cn2);
+
+    ASSERT_FALSE(OVER_EPS(min, eps) && OVER_EPS(max, eps) && OVER_EPS(rng1, eps) && OVER_EPS(rng2, eps) && OVER_EPS(last, eps))
+        << "sanity check failed even for loose check" << std::endl;
+}
+
 void Regression::verify(cv::FileNode node, cv::Mat actual, double eps, std::string argname, ERROR_TYPE err)
 {
     if (!actual.empty() && actual.dims < 2) return;
@@ -536,7 +583,14 @@ void Regression::verify(cv::FileNode node, cv::InputArray array, double eps, ERR
         {
             ASSERT_LE((size_t)26, array.total() * (size_t)array.channels())
                     << "  Argument \"" << node.name() << "\" has unexpected number of elements";
-            verify(node, array.getMat(), eps, "Argument \"" + node.name() + "\"", err);
+            if (err == ERROR_RELATIVE)
+            {
+                verifyLoose(node, array.getMat(), eps, "Argument \"" + node.name() + "\"", err);
+            }
+            else
+            {
+                verify(node, array.getMat(), eps, "Argument \"" + node.name() + "\"", err);
+            }
         }
         else
         {

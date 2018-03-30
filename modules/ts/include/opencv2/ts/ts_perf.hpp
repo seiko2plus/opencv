@@ -210,6 +210,7 @@ private:
     void write(cv::Mat m);
     void verify(cv::FileNode node, cv::InputArray array, double eps, ERROR_TYPE err);
     void verify(cv::FileNode node, cv::Mat actual, double eps, std::string argname, ERROR_TYPE err);
+    void verifyLoose(cv::FileNode node, cv::Mat actual, double eps, std::string argname, ERROR_TYPE err);
 };
 
 #define SANITY_CHECK(array, ...) ::perf::Regression::add(this, #array, array , ## __VA_ARGS__)

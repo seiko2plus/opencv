@@ -81,7 +81,7 @@ OCL_PERF_TEST_P(WarpAffineFixture, WarpAffine,
 
     OCL_TEST_CYCLE() cv::warpAffine(src, dst, M, srcSize, interpolation);
 
-    SANITY_CHECK(dst, eps);
+    SANITY_CHECK(dst, eps, ERROR_RELATIVE);
 }
 
 ///////////// WarpPerspective ////////////////////////
@@ -113,7 +113,7 @@ OCL_PERF_TEST_P(WarpPerspectiveFixture, WarpPerspective,
 
     OCL_TEST_CYCLE() cv::warpPerspective(src, dst, M, srcSize, interpolation);
 
-    SANITY_CHECK(dst, eps);
+    SANITY_CHECK(dst, eps, ERROR_RELATIVE);
 }
 
 ///////////// Resize ////////////////////////
@@ -229,7 +229,7 @@ OCL_PERF_TEST_P(RemapFixture, Remap,
 
     OCL_TEST_CYCLE() cv::remap(src, dst, xmap, ymap, interpolation, borderMode);
 
-    SANITY_CHECK(dst, eps);
+    SANITY_CHECK(dst, eps, ERROR_RELATIVE);
 }
 
 } } // namespace opencv_test::ocl
