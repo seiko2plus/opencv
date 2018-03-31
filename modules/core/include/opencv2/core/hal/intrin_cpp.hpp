@@ -171,7 +171,7 @@ Different type conversions and casts:
 
 ### Matrix operations
 
-In these operations vectors represent matrix rows/columns: @ref v_dotprod, @ref v_matmul, @ref v_transpose4x4
+In these operations vectors represent matrix rows/columns: @ref v_dotprod, @ref v_dotprod_add, @ref v_matmul, @ref v_transpose4x4
 
 ### Usability
 
@@ -193,6 +193,7 @@ Regular integers:
 |compare            | x | x | x | x | x | x |
 |shift              |   |   | x | x | x | x |
 |dotprod            |   |   |   | x |   |   |
+|dotprod_add        |   |   |   | x |   |   |
 |logical            | x | x | x | x | x | x |
 |min, max           | x | x | x | x | x | x |
 |absdiff            | x | x | x | x | x | x |
@@ -827,6 +828,24 @@ template<typename _Tp, int n> inline v_reg<typename V_TypeTraits<_Tp>::w_type, n
         c.s[i] = (w_type)a.s[i*2]*b.s[i*2] + (w_type)a.s[i*2+1]*b.s[i*2+1];
     return c;
 }
+
+/** @brief Dot product and add
+
+Same as cv::v_dotprod, but add a third element to the sum of adjacent pairs.
+
+Scheme:
+@code
+  {A1 A2 ...} // 16-bit
+x {B1 B2 ...} // 16-bit
+-------------
+  {A1B1+A2B2+C1 ...} // 32-bit
+
+@endcode
+Implemented only for 16-bit signed source type (v_int16x8).
+*/
+
+inline v_int32x4 v_dotprod_add(const v_int16x8& a, const v_int16x8& b, const v_int32x4& c)
+{ return v_dotprod(a, b) + c; }
 
 /** @brief Multiply and expand
 

@@ -489,9 +489,8 @@ struct RemapVec_8u
                 v_zip(v_load_low((int*)(wtab + FXY[x]     * 4)), v_load_low((int*)(wtab + FXY[x + 1] * 4)), a0, a1);
                 v_zip(v_load_low((int*)(wtab + FXY[x + 2] * 4)), v_load_low((int*)(wtab + FXY[x + 3] * 4)), b0, b1);
                 v_recombine(a0, b0, a2, b2);
-                v0 = v_dotprod(v_reinterpret_as_s16(v0), v_reinterpret_as_s16(a2));
-                v1 = v_dotprod(v_reinterpret_as_s16(v1), v_reinterpret_as_s16(b2));
-                v0 = v0 + v1 + delta;
+                v1 = v_dotprod_add(v_reinterpret_as_s16(v1), v_reinterpret_as_s16(b2), delta);
+                v0 = v_dotprod_add(v_reinterpret_as_s16(v0), v_reinterpret_as_s16(a2), v1);
 
                 vec16 = CV_PICK_AND_PACK4(S0, iofs1);
                 v_expand(v_reinterpret_as_u8(vec16), stub, dummy);
@@ -503,9 +502,8 @@ struct RemapVec_8u
                 v_zip(v_load_low((int*)(wtab + FXY[x + 4] * 4)), v_load_low((int*)(wtab + FXY[x + 5] * 4)), c0, c1);
                 v_zip(v_load_low((int*)(wtab + FXY[x + 6] * 4)), v_load_low((int*)(wtab + FXY[x + 7] * 4)), d0, d1);
                 v_recombine(c0, d0, c2, d2);
-                v2 = v_dotprod(v_reinterpret_as_s16(v2), v_reinterpret_as_s16(c2));
-                v3 = v_dotprod(v_reinterpret_as_s16(v3), v_reinterpret_as_s16(d2));
-                v2 = v2 + v3 + delta;
+                v3 = v_dotprod_add(v_reinterpret_as_s16(v3), v_reinterpret_as_s16(d2), delta);
+                v2 = v_dotprod_add(v_reinterpret_as_s16(v2), v_reinterpret_as_s16(c2), v3);
 
                 v0 = v0 >> INTER_REMAP_COEF_BITS;
                 v2 = v2 >> INTER_REMAP_COEF_BITS;
@@ -536,8 +534,8 @@ struct RemapVec_8u
                 CV_PICK_AND_PACK_RGB(S0, iofs0[1], u1);
                 CV_PICK_AND_PACK_RGB(S1, iofs0[1], v1);
 
-                v_int32x4 result0 = (v_dotprod(u0, w00) + v_dotprod(v0, w01) + delta) >> INTER_REMAP_COEF_BITS;
-                v_int32x4 result1 = (v_dotprod(u1, w10) + v_dotprod(v1, w11) + delta) >> INTER_REMAP_COEF_BITS;
+                v_int32x4 result0 = v_dotprod_add(u0, w00, v_dotprod_add(v0, w01, delta)) >> INTER_REMAP_COEF_BITS;
+                v_int32x4 result1 = v_dotprod_add(u1, w10, v_dotprod_add(v1, w11, delta)) >> INTER_REMAP_COEF_BITS;
 
                 result0 = v_rotate_left<1>(result0);
                 v_int16x8 result8 = v_pack(result0, result1);
@@ -554,8 +552,8 @@ struct RemapVec_8u
                 CV_PICK_AND_PACK_RGB(S0, iofs0[3], u1);
                 CV_PICK_AND_PACK_RGB(S1, iofs0[3], v1);
 
-                result0 = (v_dotprod(u0, w00) + v_dotprod(v0, w01) + delta) >> INTER_REMAP_COEF_BITS;
-                result1 = (v_dotprod(u1, w10) + v_dotprod(v1, w11) + delta) >> INTER_REMAP_COEF_BITS;
+                result0 = v_dotprod_add(u0, w00, v_dotprod_add(v0, w01, delta)) >> INTER_REMAP_COEF_BITS;
+                result1 = v_dotprod_add(u1, w10, v_dotprod_add(v1, w11, delta)) >> INTER_REMAP_COEF_BITS;
 
                 result0 = v_rotate_left<1>(result0);
                 result8 = v_pack(result0, result1);
@@ -586,8 +584,8 @@ struct RemapVec_8u
                 CV_PICK_AND_PACK_RGB(S0, iofs0[1], u1);
                 CV_PICK_AND_PACK_RGB(S1, iofs0[1], v1);
 
-                v_int32x4 result0 = (v_dotprod(u0, w00) + v_dotprod(v0, w01) + delta) >> INTER_REMAP_COEF_BITS;
-                v_int32x4 result1 = (v_dotprod(u1, w10) + v_dotprod(v1, w11) + delta) >> INTER_REMAP_COEF_BITS;
+                v_int32x4 result0 = v_dotprod_add(u0, w00, v_dotprod_add(v0, w01, delta)) >> INTER_REMAP_COEF_BITS;
+                v_int32x4 result1 = v_dotprod_add(u1, w10, v_dotprod_add(v1, w11, delta)) >> INTER_REMAP_COEF_BITS;
                 v_int16x8 result8 = v_pack(result0, result1);
                 v_pack_u_store(D, result8);
 
@@ -600,8 +598,8 @@ struct RemapVec_8u
                 CV_PICK_AND_PACK_RGB(S0, iofs0[3], u1);
                 CV_PICK_AND_PACK_RGB(S1, iofs0[3], v1);
 
-                result0 = (v_dotprod(u0, w00) + v_dotprod(v0, w01) + delta) >> INTER_REMAP_COEF_BITS;
-                result1 = (v_dotprod(u1, w10) + v_dotprod(v1, w11) + delta) >> INTER_REMAP_COEF_BITS;
+                result0 = v_dotprod_add(u0, w00, v_dotprod_add(v0, w01, delta)) >> INTER_REMAP_COEF_BITS;
+                result1 = v_dotprod_add(u1, w10, v_dotprod_add(v1, w11, delta)) >> INTER_REMAP_COEF_BITS;
                 result8 = v_pack(result0, result1);
                 v_pack_u_store(D + 8, result8);
             }

@@ -506,6 +506,9 @@ inline v_int32x4 v_dotprod(const v_int16x8& a, const v_int16x8& b)
     return v_int32x4(vaddq_s32(cd.val[0], cd.val[1]));
 }
 
+inline v_int32x4 v_dotprod_add(const v_int16x8& a, const v_int16x8& b, const v_int32x4& c)
+{ return v_dotprod(a, b) + c; }
+
 #define OPENCV_HAL_IMPL_NEON_LOGIC_OP(_Tpvec, suffix) \
     OPENCV_HAL_IMPL_NEON_BIN_OP(&, _Tpvec, vandq_##suffix) \
     OPENCV_HAL_IMPL_NEON_BIN_OP(|, _Tpvec, vorrq_##suffix) \

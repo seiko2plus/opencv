@@ -710,6 +710,9 @@ inline v_int32x4 v_dotprod(const v_int16x8& a, const v_int16x8& b)
     return v_int32x4(_mm_madd_epi16(a.val, b.val));
 }
 
+inline v_int32x4 v_dotprod_add(const v_int16x8& a, const v_int16x8& b, const v_int32x4& c)
+{ return v_dotprod(a, b) + c; }
+
 #define OPENCV_HAL_IMPL_SSE_LOGIC_OP(_Tpvec, suffix, not_const) \
     OPENCV_HAL_IMPL_SSE_BIN_OP(&, _Tpvec, _mm_and_##suffix) \
     OPENCV_HAL_IMPL_SSE_BIN_OP(|, _Tpvec, _mm_or_##suffix) \
