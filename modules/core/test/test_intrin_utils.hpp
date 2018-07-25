@@ -731,6 +731,23 @@ template<typename R> struct TheTest
         return *this;
     }
 
+    TheTest & test_absdiffs()
+    {
+        Data<R> dataA(std::numeric_limits<LaneType>::max()),
+                dataB(std::numeric_limits<LaneType>::min());
+        dataA[0] = (LaneType)-1;
+        dataB[0] = 1;
+        dataA[1] = 2;
+        dataB[1] = (LaneType)-2;
+        R a = dataA, b = dataB;
+        Data<R> resC = v_absdiffs(a, b);
+        for (int i = 0; i < R::nlanes; ++i)
+        {
+            EXPECT_EQ(saturate_cast<LaneType>(std::abs(dataA[i] - dataB[i])), resC[i]);
+        }
+        return *this;
+    }
+
     TheTest & test_reduce()
     {
         Data<R> dataA;
@@ -1247,6 +1264,7 @@ void test_hal_intrin_int8()
         .test_logic()
         .test_min_max()
         .test_absdiff()
+        .test_absdiffs()
         .test_abs()
         .test_mask()
         .test_popcount()
@@ -1305,6 +1323,7 @@ void test_hal_intrin_int16()
         .test_logic()
         .test_min_max()
         .test_absdiff()
+        .test_absdiffs()
         .test_abs()
         .test_reduce()
         .test_mask()

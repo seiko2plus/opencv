@@ -1209,6 +1209,16 @@ inline v_float32x8 v_absdiff(const v_float32x8& a, const v_float32x8& b)
 inline v_float64x4 v_absdiff(const v_float64x4& a, const v_float64x4& b)
 { return v_abs(a - b); }
 
+/** Saturating absolute difference **/
+inline v_int8x32 v_absdiffs(const v_int8x32& a, const v_int8x32& b)
+{
+    v_int8x32 d = a - b;
+    v_int8x32 m = a < b;
+    return (d ^ m) - m;
+}
+inline v_int16x16 v_absdiffs(const v_int16x16& a, const v_int16x16& b)
+{ return v_max(a, b) - v_min(a, b); }
+
 ////////// Conversions /////////
 
 /** Rounding **/

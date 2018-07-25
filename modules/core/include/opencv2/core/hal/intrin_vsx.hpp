@@ -817,16 +817,27 @@ inline v_float32x4 v_abs(const v_float32x4& x)
 inline v_float64x2 v_abs(const v_float64x2& x)
 { return v_float64x2(vec_abs(x.val)); }
 
+/** Absolute difference **/
+// unsigned
 OPENCV_HAL_IMPL_VSX_BIN_FUNC(v_absdiff, vec_absd)
 
-#define OPENCV_HAL_IMPL_VSX_BIN_FUNC2(_Tpvec, _Tpvec2, cast, func, intrin)  \
-inline _Tpvec2 func(const _Tpvec& a, const _Tpvec& b)                       \
-{ return _Tpvec2(cast(intrin(a.val, b.val))); }
+inline v_uint8x16 v_absdiff(const v_int8x16& a, const v_int8x16& b)
+{ return v_reinterpret_as_u8(v_sub_wrap(v_max(a, b), v_min(a, b))); }
+inline v_uint16x8 v_absdiff(const v_int16x8& a, const v_int16x8& b)
+{ return v_reinterpret_as_u16(v_sub_wrap(v_max(a, b), v_min(a, b))); }
+inline v_uint32x4 v_absdiff(const v_int32x4& a, const v_int32x4& b)
+{ return v_reinterpret_as_u32(v_max(a, b) - v_min(a, b)); }
 
-OPENCV_HAL_IMPL_VSX_BIN_FUNC2(v_int8x16, v_uint8x16, vec_uchar16_c, v_absdiff, vec_absd)
-OPENCV_HAL_IMPL_VSX_BIN_FUNC2(v_int16x8, v_uint16x8, vec_ushort8_c, v_absdiff, vec_absd)
-OPENCV_HAL_IMPL_VSX_BIN_FUNC2(v_int32x4, v_uint32x4, vec_uint4_c, v_absdiff, vec_absd)
-OPENCV_HAL_IMPL_VSX_BIN_FUNC2(v_int64x2, v_uint64x2, vec_udword2_c, v_absdiff, vec_absd)
+inline v_float32x4 v_absdiff(const v_float32x4& a, const v_float32x4& b)
+{ return v_abs(a - b); }
+inline v_float64x2 v_absdiff(const v_float64x2& a, const v_float64x2& b)
+{ return v_abs(a - b); }
+
+/** Absolute difference for signed integers **/
+inline v_int8x16 v_absdiffs(const v_int8x16& a, const v_int8x16& b)
+{ return v_int8x16(vec_abss(vec_subs(a.val, b.val))); }
+inline v_int16x8 v_absdiffs(const v_int16x8& a, const v_int16x8& b)
+{ return v_int16x8(vec_abss(vec_subs(a.val, b.val))); }
 
 ////////// Conversions /////////
 
