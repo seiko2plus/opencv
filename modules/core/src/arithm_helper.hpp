@@ -107,7 +107,7 @@
 // The loop
 //==========================================
 
-#ifndef CV_CPU_OPTIMIZATION_DECLARATIONS_ONLY
+#ifdef ARITHM_DEFINITIONS_ONLY
 
 #ifndef __SIMD_GUARD
 
@@ -203,23 +203,31 @@ void SIMD_C_FUN(SIMD_ARGS(T1, T2))
     }
 }
 
-#endif // !CV_CPU_OPTIMIZATION_DECLARATIONS_ONLY
+#endif // ARITHM_DEFINITIONS_ONLY
 
 
-//=======================================
-// Declare and define in one step
-//=======================================
+//=========================================
+// Declare & Define & Dispatch in one step
+//=========================================
 
-#ifdef CV_CPU_OPTIMIZATION_DECLARATIONS_ONLY
+#ifdef ARITHM_DECLARATIONS_ONLY
     #undef SIMD_DEF
     #define SIMD_DEF(fun_name, c_type, ...) \
         SIMD_DECLARE_OP(fun_name, c_type)
-#else
+#endif // ARITHM_DECLARATIONS_ONLY
+
+#ifdef ARITHM_DEFINITIONS_ONLY
+    #undef SIMD_DEF
     #define SIMD_DEF(fun_name, c_type, v_type, operation_name, ...)  \
         SIMD_DECLARE_OP(fun_name, c_type)                   \
         SIMD_DEFINE_OP(fun_name, c_type, v_type, operation_name)
-#endif // !CV_CPU_OPTIMIZATION_DECLARATIONS_ONLY
+#endif // ARITHM_DEFINITIONS_ONLY
 
+#ifdef ARITHM_DISPATCHING_ONLY
+    #undef SIMD_DEF
+    #define SIMD_DEF(fun_name, c_type, v_type, operation_name, ...)  \
+        SIMD_DISPATCH_OP(fun_name, c_type, v_type, operation_name)
+#endif // ARITHM_DISPATCHING_ONLY
 
 #ifndef SIMD_GUARD
 
