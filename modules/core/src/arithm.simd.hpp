@@ -29,50 +29,170 @@ namespace cv { namespace hal {
 
 #ifdef ARITHM_DEFINITIONS_ONLY
 
-#define ARITHM_DEF_OP_BIN_R(fun, sfx, pfx, _Tvec, _op)              \
-    static inline void fun(const T1* src1, const T1* src2, T1* dst) \
-    {                                                               \
-        _Tvec a = sfx##load##pfx(src1);                             \
-        _Tvec b = sfx##load##pfx(src2);                             \
-        v_store##pfx(dst, _op);                                     \
-    }
-
-#define ARITHM_IMPL_OP_BIN(name, _op, _vop)                         \
-    template<typename T1, typename Tvec>                            \
-    struct op_##name                                                \
-    {                                                               \
-        typedef V_RegTraits<Tvec> trait;                            \
-        typedef typename trait::v128_reg Tvec128;                   \
-        ARITHM_DEF_OP_BIN_R(run,  vx_, /*void*/, Tvec, _vop)        \
-        ARITHM_DEF_OP_BIN_R(run_align, vx_, _aligned, Tvec, _vop)   \
-        ARITHM_DEF_OP_BIN_R(run_f128, v_,/*void*/, Tvec128, _vop)   \
-        ARITHM_DEF_OP_BIN_R(run_f64, v_, _low, Tvec128, _vop)       \
-        static inline T1 run(T1 a, T1 b)                            \
-        { return _op; }                                             \
-    };
-
-// symmetric operator
-#define ARITHM_IMPL_OP_BIN_SYM(name, _op) ARITHM_IMPL_OP_BIN(name, _op, _op)
+////////////////////////////////////////////////////////////////////////////////
 
 // Add
-ARITHM_IMPL_OP_BIN_SYM(add, a + b)
-ARITHM_IMPL_OP_BIN(adds, saturate_cast<T1>(a + b), a + b)
+template<typename T1, typename Tvec>
+struct op_add
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return a + b; }
+    static T1 r(T1 a, T1 b)
+    { return a + b; }
+};
+template<typename T1, typename Tvec>
+struct op_adds
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return a + b; }
+    static T1 r(T1 a, T1 b)
+    { return saturate_cast<T1>(a + b); }
+};
 // Subtract
-ARITHM_IMPL_OP_BIN_SYM(sub, (a - b))
-ARITHM_IMPL_OP_BIN(subs, saturate_cast<T1>(a - b), a - b)
+template<typename T1, typename Tvec>
+struct op_sub
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return a - b; }
+    static T1 r(T1 a, T1 b)
+    { return a - b; }
+};
+template<typename T1, typename Tvec>
+struct op_subs
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return a - b; }
+    static T1 r(T1 a, T1 b)
+    { return saturate_cast<T1>(a - b); }
+};
 // Max & Min
-ARITHM_IMPL_OP_BIN(max, std::max(a, b), v_max(a, b))
-ARITHM_IMPL_OP_BIN(min, std::min(a, b), v_min(a, b))
-// AbsDiff
-ARITHM_IMPL_OP_BIN(absds_u, saturate_cast<T1>(std::abs(a - b)), v_absdiff(a, b))
-ARITHM_IMPL_OP_BIN(absds_s, saturate_cast<T1>(std::abs(a - b)), v_absdiffs(a, b))
-ARITHM_IMPL_OP_BIN(absd_int, (a > b ? a - b : b - a), v_reinterpret_as_s32(v_absdiff(a, b)))
-// todo: investigate on 'specializations to prevent "-0" results'
-ARITHM_IMPL_OP_BIN(absd_f, std::abs(a - b), v_absdiff(a, b))
+template<typename T1, typename Tvec>
+struct op_max
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return v_max(a, b); }
+    static T1 r(T1 a, T1 b)
+    { return std::max(a, b); }
+};
+template<typename T1, typename Tvec>
+struct op_min
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return v_min(a, b); }
+    static T1 r(T1 a, T1 b)
+    { return std::min(a, b); }
+};
+// Absolute difference
+template<typename T1, typename Tvec>
+struct op_absd
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return v_absdiff(a, b); }
+    static T1 r(T1 a, T1 b)
+    { return std::abs(a - b); }
+};
+// 'specializations to prevent "-0" results'
+template<typename Tvec>
+struct op_absd<float, Tvec>
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return v_absdiff(a, b); }
+    static float r(float a, float b)
+    { return std::abs(a - b); }
+};
+template<typename Tvec>
+struct op_absd<double, Tvec>
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return v_absdiff(a, b); }
+    static double r(double a, double b)
+    { return std::abs(a - b); }
+};
+template<typename T1, typename Tvec>
+struct op_absd_int
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return v_reinterpret_as_s32(v_absdiff(a, b)); }
+    static T1 r(T1 a, T1 b)
+    { return a > b ? a - b : b - a; }
+};
+template<typename T1, typename Tvec>
+struct op_absds_u
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return v_absdiff(a, b); }
+    static T1 r(T1 a, T1 b)
+    { return saturate_cast<T1>(std::abs(a - b)); }
+};
+template<typename T1, typename Tvec>
+struct op_absds_s
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return v_absdiffs(a, b); }
+    static T1 r(T1 a, T1 b)
+    { return saturate_cast<T1>(std::abs(a - b)); }
+};
 // Logical
-ARITHM_IMPL_OP_BIN_SYM(or,  a | b)
-ARITHM_IMPL_OP_BIN_SYM(xor, a ^ b)
-ARITHM_IMPL_OP_BIN_SYM(and, a & b)
+template<typename T1, typename Tvec>
+struct op_or
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return a | b; }
+    static T1 r(T1 a, T1 b)
+    { return a | b; }
+};
+template<typename T1, typename Tvec>
+struct op_xor
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return a ^ b; }
+    static T1 r(T1 a, T1 b)
+    { return a ^ b; }
+};
+template<typename T1, typename Tvec>
+struct op_and
+{
+    static Tvec r(const Tvec& a, const Tvec& b)
+    { return a & b; }
+    static T1 r(T1 a, T1 b)
+    { return a & b; }
+};
+
+template< template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
+struct op_loader
+{
+    typedef V_RegTraits<Tvec> trait;
+    typedef typename trait::v128_reg Tvec128;
+    typedef OP<T1, Tvec> op;
+    typedef OP<T1, Tvec128> op128;
+
+    static void run(const T1* src1, const T1* src2, T1* dst)
+    {
+        Tvec a = vx_load(src1);
+        Tvec b = vx_load(src2);
+        v_store(dst, op::r(a, b));
+    }
+    static void run_align(const T1* src1, const T1* src2, T1* dst)
+    {
+        Tvec a = vx_load_aligned(src1);
+        Tvec b = vx_load_aligned(src2);
+        v_store_aligned(dst, op::r(a, b));
+    }
+    static void run_f128(const T1* src1, const T1* src2, T1* dst)
+    {
+        Tvec128 a = v_load(src1);
+        Tvec128 b = v_load(src2);
+        v_store(dst, op128::r(a, b));
+    }
+    static void run_f64(const T1* src1, const T1* src2, T1* dst)
+    {
+        Tvec128 a = v_load_low(src1);
+        Tvec128 b = v_load_low(src2);
+        v_store_low(dst, op128::r(a, b));
+    }
+    static T1 run(T1 a, T1 b)
+    { return op::r(a, b); }
+};
 
 // void src2
 template<typename T1, typename Tvec>
@@ -81,33 +201,33 @@ struct op_not
     typedef V_RegTraits<Tvec> trait;
     typedef typename trait::v128_reg Tvec128;
 
-    static inline void run(const T1* src1, const T1*, T1* dst)
+    static void run(const T1* src1, const T1*, T1* dst)
     {
         Tvec a = vx_load(src1);
         v_store(dst, ~a);
     }
-    static inline void run_align(const T1* src1, const T1*, T1* dst)
+    static void run_align(const T1* src1, const T1*, T1* dst)
     {
         Tvec a = vx_load_aligned(src1);
         v_store_aligned(dst, ~a);
     }
-    static inline void run_f128(const T1* src1, const T1*, T1* dst)
+    static void run_f128(const T1* src1, const T1*, T1* dst)
     {
         Tvec128 a = v_load(src1);
         v_store(dst, ~a);
     }
-    static inline void run_f64(const T1* src1, const T1*, T1* dst)
+    static void run_f64(const T1* src1, const T1*, T1* dst)
     {
         Tvec128 a = v_load_low(src1);
         v_store_low(dst, ~a);
     }
-    static inline T1 run(T1 a, T1)
+    static T1 run(T1 a, T1)
     { return ~a; }
 };
 
 #endif // ARITHM_DEFINITIONS_ONLY
 
-////////////////////////////////////////////////////////////////////////////////
+//////////////////////////// Generate loops /////////////////////////////////
 
 #define SIMD_C_FUN simd_bin
 #define SIMD_C_RF128 1
@@ -123,27 +243,25 @@ struct op_not
 #include "arithm_helper.hpp"
 
 #define SIMD_C_FUN simd_bin64
+#define SIMD_C_SIMD CV_SIMD_64F
 #define SIMD_C_RALIGN !CV_NEON
+#define SIMD_C_RF128 1
+#define SIMD_C_SIMD128_UNROLL !CV_NEON
 #define SIMD_C_CPP_UNROLL 1
-#if CV_SIMD_64F
-    #define SIMD_C_RF128 1
-    #define SIMD_C_SIMD128_UNROLL !CV_NEON
-#else
-    #define SIMD_C_SIMD 0
-#endif
 #include "arithm_helper.hpp"
 
-////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
 
 #undef SIMD_DECLARE_OP
 #define SIMD_DECLARE_OP(fun, tp) void fun(SIMD_ARGS(tp, tp));
 
 #undef SIMD_DEFINE_BIN
-#define SIMD_DEFINE_BIN(simd_fun, fun_name, c_type, v_type, op_name)       \
-    void fun_name(SIMD_ARGS(c_type, c_type))                               \
-    {                                                                      \
-        CV_INSTRUMENT_REGION();                                            \
-        simd_fun<op_name<c_type, v_type>, c_type, c_type>(SIMD_ARGS_PASS); \
+#define SIMD_DEFINE_BIN(simd_fun, fun_name, c_type, v_type, op_name) \
+    void fun_name(SIMD_ARGS(c_type, c_type))                         \
+    {                                                                \
+        CV_INSTRUMENT_REGION();                                      \
+        simd_fun<op_loader<op_name, c_type, v_type>, c_type, c_type> \
+        (SIMD_ARGS_PASS);                                            \
     }
 
 #undef SIMD_DISPATCH_OP
@@ -185,7 +303,7 @@ SIMD_DEF_NSAT(sub, op_sub)
 SIMD_DEF_NSAT(min, op_min)
 SIMD_DEF_NSAT(max, op_max)
 SIMD_DEF_S32(absdiff, op_absd_int)
-SIMD_DEF_F32(absdiff, op_absd_f)
+SIMD_DEF_F32(absdiff, op_absd)
 
 // 64-bit
 #undef SIMD_DEFINE_OP
@@ -196,14 +314,14 @@ SIMD_DEF_F64(add, op_add)
 SIMD_DEF_F64(sub, op_sub)
 SIMD_DEF_F64(min, op_min)
 SIMD_DEF_F64(max, op_max)
-SIMD_DEF_F64(absdiff, op_absd_f)
+SIMD_DEF_F64(absdiff, op_absd)
 
 ////////////////////////////////////////////////////////////////////////////////
 
 // One source!, an exception for operation "not"
 // we could use macros here but it's better to implement it
 // with that way to give more clarification
-// about how macro "SIMD_DEF_*" is works
+// about how macroS "SIMD_DEF_*" are works
 
 #if defined(ARITHM_DECLARATIONS_ONLY) || defined(ARITHM_DEFINITIONS_ONLY)
 void not8u(const uchar* src1, size_t step1, const uchar* src2, size_t step2, uchar* dst, size_t step, int width, int height);
