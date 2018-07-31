@@ -4,6 +4,10 @@
 
 #include "opencv2/core/hal/intrin.hpp"
 
+//=========================================
+// Declare & Define & Dispatch in one step
+//=========================================
+
 // ARITHM_DISPATCHING_ONLY defined by arithm dispatch file
 
 #undef ARITHM_DECLARATIONS_ONLY
@@ -16,325 +20,472 @@
     #define ARITHM_DEFINITIONS_ONLY
 #endif
 
+#ifdef ARITHM_DECLARATIONS_ONLY
+    #undef DEFINE_SIMD
+    #define DEFINE_SIMD(fun_name, c_type, ...) \
+        DECLARE_SIMD_FUN(fun_name, c_type)
+#endif // ARITHM_DECLARATIONS_ONLY
+
+#ifdef ARITHM_DEFINITIONS_ONLY
+    #undef DEFINE_SIMD
+    #define DEFINE_SIMD(fun_name, c_type, v_type, ...)          \
+        DECLARE_SIMD_FUN(fun_name, c_type)                      \
+        DEFINE_SIMD_FUN(fun_name, c_type, v_type, __VA_ARGS__)
+#endif // ARITHM_DEFINITIONS_ONLY
+
+#ifdef ARITHM_DISPATCHING_ONLY
+    #undef DEFINE_SIMD
+    #define DEFINE_SIMD(fun_name, c_type, v_type, ...)           \
+        DISPATCH_SIMD_FUN(fun_name, c_type, v_type, __VA_ARGS__)
+#endif // ARITHM_DISPATCHING_ONLY
+
+// workaround when neon miss support of double precision
+#undef DEFINE_NOSIMD
+#ifdef ARITHM_DEFINITIONS_ONLY
+    #define DEFINE_NOSIMD(fun_name, c_type, ...)          \
+        DECLARE_SIMD_FUN(fun_name, c_type)                \
+        DEFINE_NOSIMD_FUN(fun_name, c_type, __VA_ARGS__)
+#else
+    #define DEFINE_NOSIMD DEFINE_SIMD
+#endif // ARITHM_DEFINITIONS_ONLY
+
+#ifndef SIMD_GUARD
+
+#define DEFINE_SIMD_U8(fun, ...) \
+    DEFINE_SIMD(__CV_CAT(fun, 8u), uchar, v_uint8, __VA_ARGS__)
+
+#define DEFINE_SIMD_S8(fun, ...) \
+    DEFINE_SIMD(__CV_CAT(fun, 8s), schar, v_int8,  __VA_ARGS__)
+
+#define DEFINE_SIMD_U16(fun, ...) \
+    DEFINE_SIMD(__CV_CAT(fun, 16u), ushort, v_uint16, __VA_ARGS__)
+
+#define DEFINE_SIMD_S16(fun, ...) \
+    DEFINE_SIMD(__CV_CAT(fun, 16s), short, v_int16,  __VA_ARGS__)
+
+#define DEFINE_SIMD_S32(fun, ...) \
+    DEFINE_SIMD(__CV_CAT(fun, 32s), int, v_int32,  __VA_ARGS__)
+
+#define DEFINE_SIMD_F32(fun, ...) \
+    DEFINE_SIMD(__CV_CAT(fun, 32f), float, v_float32, __VA_ARGS__)
+
+#if CV_SIMD_64F
+    #define DEFINE_SIMD_F64(fun, ...) \
+        DEFINE_SIMD(__CV_CAT(fun, 64f), double, v_float64, __VA_ARGS__)
+#else
+    #define DEFINE_SIMD_F64(fun, ...) \
+        DEFINE_NOSIMD(__CV_CAT(fun, 64f), double, __VA_ARGS__)
+#endif
+
+#define DEFINE_SIMD_SAT(fun, ...)      \
+    DEFINE_SIMD_U8(fun, __VA_ARGS__)   \
+    DEFINE_SIMD_S8(fun, __VA_ARGS__)   \
+    DEFINE_SIMD_U16(fun, __VA_ARGS__)  \
+    DEFINE_SIMD_S16(fun, __VA_ARGS__)
+
+#define DEFINE_SIMD_NSAT(fun, ...)     \
+    DEFINE_SIMD_S32(fun, __VA_ARGS__)  \
+    DEFINE_SIMD_F32(fun, __VA_ARGS__)  \
+    DEFINE_SIMD_F64(fun, __VA_ARGS__)
+
+#define DEFINE_SIMD_ALL(fun, ...)      \
+    DEFINE_SIMD_SAT(fun, __VA_ARGS__)  \
+    DEFINE_SIMD_NSAT(fun, __VA_ARGS__)
+
+#endif // SIMD_GUARD
+
+///////////////////////////////////////////////////////////////////////////
+
 namespace cv { namespace hal {
 
 #ifndef ARITHM_DISPATCHING_ONLY
     CV_CPU_OPTIMIZATION_NAMESPACE_BEGIN
 #endif
 
+#ifdef ARITHM_DEFINITIONS_ONLY
+
 //=======================================
 // Arithmetic and logical operations
 // +, -, *, /, &, |, ^, ~, abs ...
 //=======================================
 
-#ifdef ARITHM_DEFINITIONS_ONLY
-
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////// Operations //////////////////////////////////
 
 // Add
 template<typename T1, typename Tvec>
 struct op_add
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline Tvec r(const Tvec& a, const Tvec& b)
     { return a + b; }
-    static T1 r(T1 a, T1 b)
+    static inline T1 r(T1 a, T1 b)
     { return a + b; }
 };
 template<typename T1, typename Tvec>
 struct op_adds
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline Tvec r(const Tvec& a, const Tvec& b)
     { return a + b; }
-    static T1 r(T1 a, T1 b)
+    static inline T1 r(T1 a, T1 b)
     { return saturate_cast<T1>(a + b); }
 };
+
+
 // Subtract
 template<typename T1, typename Tvec>
 struct op_sub
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline Tvec r(const Tvec& a, const Tvec& b)
     { return a - b; }
-    static T1 r(T1 a, T1 b)
+    static inline T1 r(T1 a, T1 b)
     { return a - b; }
 };
 template<typename T1, typename Tvec>
 struct op_subs
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline Tvec r(const Tvec& a, const Tvec& b)
     { return a - b; }
-    static T1 r(T1 a, T1 b)
+    static inline T1 r(T1 a, T1 b)
     { return saturate_cast<T1>(a - b); }
 };
+
+
 // Max & Min
 template<typename T1, typename Tvec>
 struct op_max
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline Tvec r(const Tvec& a, const Tvec& b)
     { return v_max(a, b); }
-    static T1 r(T1 a, T1 b)
+    static inline T1 r(T1 a, T1 b)
     { return std::max(a, b); }
 };
 template<typename T1, typename Tvec>
 struct op_min
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline Tvec r(const Tvec& a, const Tvec& b)
     { return v_min(a, b); }
-    static T1 r(T1 a, T1 b)
+    static inline T1 r(T1 a, T1 b)
     { return std::min(a, b); }
 };
+
 // Absolute difference
 template<typename T1, typename Tvec>
-struct op_absd
+struct op_absdiff
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
-    { return v_absdiff(a, b); }
-    static T1 r(T1 a, T1 b)
-    { return std::abs(a - b); }
+    Tvec r(const Tvec& a, const Tvec& b);
+    T1 r(T1 a, T1 b);
 };
 // 'specializations to prevent "-0" results'
 template<typename Tvec>
-struct op_absd<float, Tvec>
+struct op_absdiff<float, Tvec>
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline Tvec r(const Tvec& a, const Tvec& b)
     { return v_absdiff(a, b); }
-    static float r(float a, float b)
+    static inline float r(float a, float b)
     { return std::abs(a - b); }
 };
 template<typename Tvec>
-struct op_absd<double, Tvec>
+struct op_absdiff<double, Tvec>
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline Tvec r(const Tvec& a, const Tvec& b)
     { return v_absdiff(a, b); }
-    static double r(double a, double b)
+    static inline double r(double a, double b)
     { return std::abs(a - b); }
 };
-template<typename T1, typename Tvec>
-struct op_absd_int
+template<>
+struct op_absdiff<int, v_int32>
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline v_int32 r(const v_int32& a, const v_int32& b)
     { return v_reinterpret_as_s32(v_absdiff(a, b)); }
-    static T1 r(T1 a, T1 b)
+    static inline int r(int a, int b)
     { return a > b ? a - b : b - a; }
 };
 template<typename T1, typename Tvec>
-struct op_absds_u
+struct op_absdiff_u
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline Tvec r(const Tvec& a, const Tvec& b)
     { return v_absdiff(a, b); }
-    static T1 r(T1 a, T1 b)
+    static inline T1 r(T1 a, T1 b)
     { return saturate_cast<T1>(std::abs(a - b)); }
 };
 template<typename T1, typename Tvec>
-struct op_absds_s
+struct op_absdiff_s
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline Tvec r(const Tvec& a, const Tvec& b)
     { return v_absdiffs(a, b); }
-    static T1 r(T1 a, T1 b)
+    static inline T1 r(T1 a, T1 b)
     { return saturate_cast<T1>(std::abs(a - b)); }
 };
+
+
 // Logical
 template<typename T1, typename Tvec>
 struct op_or
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline Tvec r(const Tvec& a, const Tvec& b)
     { return a | b; }
-    static T1 r(T1 a, T1 b)
+    static inline T1 r(T1 a, T1 b)
     { return a | b; }
 };
 template<typename T1, typename Tvec>
 struct op_xor
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline Tvec r(const Tvec& a, const Tvec& b)
     { return a ^ b; }
-    static T1 r(T1 a, T1 b)
+    static inline T1 r(T1 a, T1 b)
     { return a ^ b; }
 };
 template<typename T1, typename Tvec>
 struct op_and
 {
-    static Tvec r(const Tvec& a, const Tvec& b)
+    static inline Tvec r(const Tvec& a, const Tvec& b)
     { return a & b; }
-    static T1 r(T1 a, T1 b)
+    static inline T1 r(T1 a, T1 b)
     { return a & b; }
 };
+template<typename T1, typename Tvec>
+struct op_not
+{
+    // ignored b from loader level
+    static inline Tvec r(const Tvec& a)
+    { return ~a; }
+    static inline T1 r(T1 a, T1)
+    { return ~a; }
+};
+
+//////////////////////////// Loaders /////////////////////////////////
+
+#if CV_SIMD
 
 template< template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
-struct op_loader
+struct bin_loader
 {
-    typedef V_RegTraits<Tvec> trait;
-    typedef typename trait::v128_reg Tvec128;
     typedef OP<T1, Tvec> op;
-    typedef OP<T1, Tvec128> op128;
 
-    static void run(const T1* src1, const T1* src2, T1* dst)
+    static inline void l(const T1* src1, const T1* src2, T1* dst)
     {
         Tvec a = vx_load(src1);
         Tvec b = vx_load(src2);
         v_store(dst, op::r(a, b));
     }
-    static void run_align(const T1* src1, const T1* src2, T1* dst)
+
+    static inline void la(const T1* src1, const T1* src2, T1* dst)
     {
         Tvec a = vx_load_aligned(src1);
         Tvec b = vx_load_aligned(src2);
-        v_store_aligned(dst, op::r(a, b));
+        v_store_aligned(dst, op::r(a, b)); // todo: try write without cache
     }
-    static void run_f128(const T1* src1, const T1* src2, T1* dst)
+
+    static inline void l64(const T1* src1, const T1* src2, T1* dst)
     {
-        Tvec128 a = v_load(src1);
-        Tvec128 b = v_load(src2);
-        v_store(dst, op128::r(a, b));
+        Tvec a = vx_load_low(src1), b = vx_load_low(src2);
+        v_store_low(dst, op::r(a, b));
     }
-    static void run_f64(const T1* src1, const T1* src2, T1* dst)
-    {
-        Tvec128 a = v_load_low(src1);
-        Tvec128 b = v_load_low(src2);
-        v_store_low(dst, op128::r(a, b));
-    }
-    static T1 run(T1 a, T1 b)
-    { return op::r(a, b); }
 };
 
-// void src2
+// void src2 for operation "not"
 template<typename T1, typename Tvec>
-struct op_not
+struct bin_loader<op_not, T1, Tvec>
 {
-    typedef V_RegTraits<Tvec> trait;
-    typedef typename trait::v128_reg Tvec128;
+    typedef op_not<T1, Tvec> op;
 
-    static void run(const T1* src1, const T1*, T1* dst)
+    static inline void l(const T1* src1, const T1*, T1* dst)
     {
         Tvec a = vx_load(src1);
-        v_store(dst, ~a);
+        v_store(dst, op::r(a));
     }
-    static void run_align(const T1* src1, const T1*, T1* dst)
+
+    static inline void la(const T1* src1, const T1*, T1* dst)
     {
         Tvec a = vx_load_aligned(src1);
-        v_store_aligned(dst, ~a);
+        v_store_aligned(dst, op::r(a));
     }
-    static void run_f128(const T1* src1, const T1*, T1* dst)
+
+    static inline void l64(const T1* src1, const T1*, T1* dst)
     {
-        Tvec128 a = v_load(src1);
-        v_store(dst, ~a);
+        Tvec a = vx_load_low(src1);
+        v_store_low(dst, op::r(a));
     }
-    static void run_f64(const T1* src1, const T1*, T1* dst)
-    {
-        Tvec128 a = v_load_low(src1);
-        v_store_low(dst, ~a);
-    }
-    static T1 run(T1 a, T1)
-    { return ~a; }
 };
+
+#endif // CV_SIMD
+
+//////////////////////////// Loops /////////////////////////////////
+
+template<typename T1, typename T2>
+static inline bool is_aligned(const T1* src1, const T1* src2, const T2* dst)
+{ return (((size_t)src1|(size_t)src2|(size_t)dst) & (CV_SIMD_WIDTH - 1)) == 0; }
+
+template< template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
+static void bin_loop(const T1* src1, size_t step1, const T1* src2, size_t step2, T1* dst, size_t step, int width, int height)
+{
+    typedef OP<T1, Tvec> op;
+#if CV_SIMD
+    typedef bin_loader<OP, T1, Tvec> ldr;
+    const int wide_step = Tvec::nlanes;
+    #if !CV_NEON && CV_SIMD_WIDTH == 16
+        const int wide_step_l = wide_step * 2;
+    #else
+        const int wide_step_l = wide_step;
+    #endif
+#endif // CV_SIMD
+
+    for (; height--;
+        src1 = (const T1 *)((const uchar *)src1 + step1),
+        src2 = (const T1 *)((const uchar *)src2 + step2),
+        dst  = (T1 *)((uchar *)dst + step)
+    )
+    {
+        int x = 0;
+
+    #if CV_SIMD
+        #if !CV_NEON
+        if (is_aligned(src1, src2, dst))
+        {
+            for (; x <= width - wide_step_l; x += wide_step_l)
+            {
+                ldr::la(src1 + x, src2 + x, dst + x);
+                #if !CV_NEON && CV_SIMD_WIDTH == 16
+                ldr::la(src1 + x + wide_step, src2 + x + wide_step, dst + x + wide_step);
+                #endif
+            }
+        }
+        else
+        #endif
+            for (; x <= width - wide_step_l; x += wide_step_l)
+            {
+                ldr::l(src1 + x, src2 + x, dst + x);
+                #if !CV_NEON && CV_SIMD_WIDTH == 16
+                ldr::l(src1 + x + wide_step, src2 + x + wide_step, dst + x + wide_step);
+                #endif
+            }
+
+        #if CV_SIMD_WIDTH == 16
+        for (; x <= width - 8/(int)sizeof(T1); x += 8/(int)sizeof(T1))
+        {
+            ldr::l64(src1 + x, src2 + x, dst + x);
+        }
+        #endif
+    #endif // CV_SIMD
+
+    #if CV_ENABLE_UNROLLED || CV_SIMD_WIDTH > 16
+        while (x <= width - 4)
+        {
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+        }
+    #endif
+
+        for (; x < width; x++)
+            dst[x] = op::r(src1[x], src2[x]);
+    }
+
+    vx_cleanup();
+}
+
+template< template<typename T1, typename Tvec> class OP, typename T1>
+static void bin_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t step2, T1* dst, size_t step, int width, int height)
+{
+    typedef OP<T1, v_int32 /*dummy*/> op;
+
+    for (; height--;
+        src1 = (const T1 *)((const uchar *)src1 + step1),
+        src2 = (const T1 *)((const uchar *)src2 + step2),
+        dst  = (T1 *)((uchar *)dst + step)
+    )
+    {
+        int x = 0;
+
+    #if CV_ENABLE_UNROLLED || CV_SIMD_64F
+        while (x <= width - 4)
+        {
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+        }
+    #endif
+
+        for (; x < width; x++)
+            dst[x] = op::r(src1[x], src2[x]);
+    }
+}
 
 #endif // ARITHM_DEFINITIONS_ONLY
 
-//////////////////////////// Generate loops /////////////////////////////////
-
-#define SIMD_C_FUN simd_bin
-#define SIMD_C_RF128 1
-#define SIMD_C_RF64 1
-#define SIMD_C_SIMD128_UNROLL !CV_NEON
-#include "arithm_helper.hpp"
-
-#define SIMD_C_FUN simd_bin32
-#define SIMD_C_RALIGN !CV_NEON
-#define SIMD_C_RF128 1
-#define SIMD_C_RF64 1
-#define SIMD_C_SIMD128_UNROLL !CV_NEON
-#include "arithm_helper.hpp"
-
-#define SIMD_C_FUN simd_bin64
-#define SIMD_C_SIMD CV_SIMD_64F
-#define SIMD_C_RALIGN !CV_NEON
-#define SIMD_C_RF128 1
-#define SIMD_C_SIMD128_UNROLL !CV_NEON
-#define SIMD_C_CPP_UNROLL 1
-#include "arithm_helper.hpp"
-
 ////////////////////////////////////////////////////////////////////////////////////
 
-#undef SIMD_DECLARE_OP
-#define SIMD_DECLARE_OP(fun, tp) void fun(SIMD_ARGS(tp, tp));
+#ifndef SIMD_GUARD
+#define BIN_ARGS(_T1) const _T1* src1, size_t step1, const _T1* src2, size_t step2, \
+                      _T1* dst, size_t step, int width, int height
 
-#undef SIMD_DEFINE_BIN
-#define SIMD_DEFINE_BIN(simd_fun, fun_name, c_type, v_type, op_name) \
-    void fun_name(SIMD_ARGS(c_type, c_type))                         \
-    {                                                                \
-        CV_INSTRUMENT_REGION();                                      \
-        simd_fun<op_loader<op_name, c_type, v_type>, c_type, c_type> \
-        (SIMD_ARGS_PASS);                                            \
+#define BIN_ARGS_PASS src1, step1, src2, step2, dst, step, width, height
+#endif // SIMD_GUARD
+
+#undef DECLARE_SIMD_FUN
+#define DECLARE_SIMD_FUN(fun, _T1) void fun(BIN_ARGS(_T1));
+
+#undef DISPATCH_SIMD_FUN
+#define DISPATCH_SIMD_FUN(fun, _T1, _Tvec, _OP)                           \
+    void fun(BIN_ARGS(_T1), void*)                                        \
+    {                                                                     \
+        CV_INSTRUMENT_REGION();                                           \
+        CALL_HAL(fun, __CV_CAT(cv_hal_, fun), BIN_ARGS_PASS)              \
+        ARITHM_CALL_IPP(__CV_CAT(arithm_ipp_, fun), BIN_ARGS_PASS)        \
+        CV_CPU_DISPATCH(fun, (BIN_ARGS_PASS), CV_CPU_DISPATCH_MODES_ALL); \
     }
 
-#undef SIMD_DISPATCH_OP
-#define SIMD_DISPATCH_OP(fun_name, c_type, v_type, op_name)                     \
-    void fun_name(SIMD_ARGS(c_type, c_type), void*)                             \
-    {                                                                           \
-        CV_INSTRUMENT_REGION();                                                 \
-        CALL_HAL(fun_name, __CV_CAT(cv_hal_, fun_name), SIMD_ARGS_PASS)         \
-        ARITHM_CALL_IPP(__CV_CAT(arithm_ipp_, fun_name), SIMD_ARGS_PASS)        \
-        CV_CPU_DISPATCH(fun_name, (SIMD_ARGS_PASS), CV_CPU_DISPATCH_MODES_ALL); \
+#undef DEFINE_SIMD_FUN
+#define DEFINE_SIMD_FUN(fun, _T1, _Tvec, _OP)     \
+    void fun(BIN_ARGS(_T1))                       \
+    {                                             \
+        CV_INSTRUMENT_REGION();                   \
+        bin_loop<_OP, _T1, _Tvec>(BIN_ARGS_PASS); \
     }
 
-// 8bit - 16bit
-#undef SIMD_DEFINE_OP
-#define SIMD_DEFINE_OP(fun_name, c_type, v_type, op_name) \
-    SIMD_DEFINE_BIN(simd_bin, fun_name, c_type, v_type, op_name)
+#undef DEFINE_NOSIMD_FUN
+#define DEFINE_NOSIMD_FUN(fun, _T1, _OP)          \
+    void fun(BIN_ARGS(_T1))                       \
+    {                                             \
+        CV_INSTRUMENT_REGION();                   \
+        bin_loop_nosimd<_OP, _T1>(BIN_ARGS_PASS); \
+    }
 
-SIMD_DEF_SAT(add, op_adds)
-SIMD_DEF_SAT(sub, op_subs)
-SIMD_DEF_SAT(min, op_min)
-SIMD_DEF_SAT(max, op_max)
+DEFINE_SIMD_SAT(add, op_adds)
+DEFINE_SIMD_NSAT(add, op_add)
 
-SIMD_DEF_U8(absdiff, op_absds_u)
-SIMD_DEF_S8(absdiff, op_absds_s)
-SIMD_DEF_U16(absdiff, op_absds_u)
-SIMD_DEF_S16(absdiff, op_absds_s)
+DEFINE_SIMD_SAT(sub, op_subs)
+DEFINE_SIMD_NSAT(sub, op_sub)
 
-SIMD_DEF_U8(or,  op_or)
-SIMD_DEF_U8(xor, op_xor)
-SIMD_DEF_U8(and, op_and)
+DEFINE_SIMD_ALL(min, op_min)
+DEFINE_SIMD_ALL(max, op_max)
 
-// 32-bit
-#undef SIMD_DEFINE_OP
-#define SIMD_DEFINE_OP(fun_name, c_type, v_type, op_name) \
-    SIMD_DEFINE_BIN(simd_bin32, fun_name, c_type, v_type, op_name)
+DEFINE_SIMD_U8(absdiff, op_absdiff_u)
+DEFINE_SIMD_S16(absdiff, op_absdiff_s)
+DEFINE_SIMD_U16(absdiff, op_absdiff_u)
+DEFINE_SIMD_S8(absdiff, op_absdiff_s)
+DEFINE_SIMD_NSAT(absdiff, op_absdiff)
 
-SIMD_DEF_NSAT(add, op_add)
-SIMD_DEF_NSAT(sub, op_sub)
-SIMD_DEF_NSAT(min, op_min)
-SIMD_DEF_NSAT(max, op_max)
-SIMD_DEF_S32(absdiff, op_absd_int)
-SIMD_DEF_F32(absdiff, op_absd)
-
-// 64-bit
-#undef SIMD_DEFINE_OP
-#define SIMD_DEFINE_OP(fun_name, c_type, v_type, op_name) \
-    SIMD_DEFINE_BIN(simd_bin64, fun_name, c_type, v_type, op_name)
-
-SIMD_DEF_F64(add, op_add)
-SIMD_DEF_F64(sub, op_sub)
-SIMD_DEF_F64(min, op_min)
-SIMD_DEF_F64(max, op_max)
-SIMD_DEF_F64(absdiff, op_absd)
-
-////////////////////////////////////////////////////////////////////////////////
+DEFINE_SIMD_U8(or,  op_or)
+DEFINE_SIMD_U8(xor, op_xor)
+DEFINE_SIMD_U8(and, op_and)
 
 // One source!, an exception for operation "not"
 // we could use macros here but it's better to implement it
 // with that way to give more clarification
-// about how macroS "SIMD_DEF_*" are works
+// about how macroS "DEFINE_SIMD_*" are works
 
 #if defined(ARITHM_DECLARATIONS_ONLY) || defined(ARITHM_DEFINITIONS_ONLY)
 void not8u(const uchar* src1, size_t step1, const uchar* src2, size_t step2, uchar* dst, size_t step, int width, int height);
 #endif
-
 #ifdef ARITHM_DEFINITIONS_ONLY
 void not8u(const uchar* src1, size_t step1, const uchar* src2, size_t step2, uchar* dst, size_t step, int width, int height)
 {
     CV_INSTRUMENT_REGION();
-    simd_bin<op_not<uchar, v_uint8>, uchar, uchar>(src1, step1, src2, step2, dst, step, width, height);
+    bin_loop<op_not, uchar, v_uint8>(src1, step1, src2, step2, dst, step, width, height);
 }
 #endif
-
 #ifdef ARITHM_DISPATCHING_ONLY
 void not8u(const uchar* src1, size_t step1, const uchar* src2, size_t step2, uchar* dst, size_t step, int width, int height, void*)
 {
@@ -347,6 +498,10 @@ void not8u(const uchar* src1, size_t step1, const uchar* src2, size_t step2, uch
 
 #ifndef ARITHM_DISPATCHING_ONLY
     CV_CPU_OPTIMIZATION_NAMESPACE_END
+#endif
+
+#ifndef SIMD_GUARD
+    #define SIMD_GUARD
 #endif
 
 }} // cv::hal::
