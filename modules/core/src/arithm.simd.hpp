@@ -384,6 +384,7 @@ static void bin_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
     vx_cleanup();
 }
 
+#if !CV_SIMD_64F
 template< template<typename T1, typename Tvec> class OP, typename T1>
 static void bin_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t step2, T1* dst, size_t step, int width, int height)
 {
@@ -397,7 +398,6 @@ static void bin_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t
     {
         int x = 0;
 
-    #if CV_ENABLE_UNROLLED || CV_SIMD_64F
         while (x <= width - 4)
         {
             dst[x] = op::r(src1[x], src2[x]); x++;
@@ -405,12 +405,12 @@ static void bin_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t
             dst[x] = op::r(src1[x], src2[x]); x++;
             dst[x] = op::r(src1[x], src2[x]); x++;
         }
-    #endif
 
         for (; x < width; x++)
             dst[x] = op::r(src1[x], src2[x]);
     }
 }
+#endif //!CV_SIMD_64F
 
 #endif // ARITHM_DEFINITIONS_ONLY
 
@@ -495,6 +495,304 @@ void not8u(const uchar* src1, size_t step1, const uchar* src2, size_t step2, uch
     CV_CPU_DISPATCH(not8u, (src1, step1, src2, step2, dst, step, width, height), CV_CPU_DISPATCH_MODES_ALL);
 }
 #endif
+
+//=======================================
+// Compare
+//=======================================
+
+#ifdef ARITHM_DEFINITIONS_ONLY
+
+///////////////////////////// Operations //////////////////////////////////
+
+template<typename T1, typename Tvec>
+struct op_cmplt
+{
+    static inline Tvec r(const Tvec& a, const Tvec& b)
+    { return a < b; }
+    static inline uchar r(T1 a, T1 b)
+    { return (uchar)-(int)(a < b); }
+};
+
+template<typename T1, typename Tvec>
+struct op_cmple
+{
+    static inline Tvec r(const Tvec& a, const Tvec& b)
+    { return a <= b; }
+    static inline uchar r(T1 a, T1 b)
+    { return (uchar)-(int)(a <= b); }
+};
+
+template<typename T1, typename Tvec>
+struct op_cmpeq
+{
+    static inline Tvec r(const Tvec& a, const Tvec& b)
+    { return a == b; }
+    static inline uchar r(T1 a, T1 b)
+    { return (uchar)-(int)(a == b); }
+};
+
+template<typename T1, typename Tvec>
+struct op_cmpne
+{
+    static inline Tvec r(const Tvec& a, const Tvec& b)
+    { return a != b; }
+    static inline uchar r(T1 a, T1 b)
+    { return (uchar)-(int)(a != b); }
+};
+
+//////////////////////////// Loaders /////////////////////////////////
+
+#if CV_SIMD
+// todo: add support for RW alignment & stream
+template<int nload, template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
+struct cmp_loader_n
+{
+    void l(const T1* src1, const T1* src2, uchar* dst);
+};
+
+template<template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
+struct cmp_loader_n<sizeof(uchar), OP, T1, Tvec>
+{
+    typedef OP<T1, Tvec> op;
+
+    static inline void l(const T1* src1, const T1* src2, uchar* dst)
+    {
+        Tvec a = vx_load(src1);
+        Tvec b = vx_load(src2);
+        v_store(dst, v_reinterpret_as_u8(op::r(a, b)));
+    }
+};
+
+// todo: optimize packing, we need a new universal intrinsic
+template<template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
+struct cmp_loader_n<sizeof(ushort), OP, T1, Tvec>
+{
+    typedef OP<T1, Tvec> op;
+    enum {step = Tvec::nlanes};
+
+    static inline void l(const T1* src1, const T1* src2, uchar* dst)
+    {
+        Tvec c0 = op::r(vx_load(src1), vx_load(src2));
+        Tvec c1 = op::r(vx_load(src1 + step), vx_load(src2 + step));
+        v_store(dst, v_pack(v_reinterpret_as_u16(c0), v_reinterpret_as_u16(c1)));
+    }
+};
+
+template<template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
+struct cmp_loader_n<sizeof(unsigned), OP, T1, Tvec>
+{
+    typedef OP<T1, Tvec> op;
+    enum {step = Tvec::nlanes};
+
+    static inline void l(const T1* src1, const T1* src2, uchar* dst)
+    {
+        v_uint32 c0 = v_reinterpret_as_u32(op::r(vx_load(src1), vx_load(src2)));
+        v_uint32 c1 = v_reinterpret_as_u32(op::r(vx_load(src1 + step), vx_load(src2 + step)));
+        v_uint32 c2 = v_reinterpret_as_u32(op::r(vx_load(src1 + step * 2), vx_load(src2 + step * 2)));
+        v_uint32 c3 = v_reinterpret_as_u32(op::r(vx_load(src1 + step * 3), vx_load(src2 + step * 3)));
+        v_store(dst, v_pack(v_pack(c0, c1), v_pack(c2, c3)));
+    }
+};
+
+#if CV_SIMD_64F
+template<template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
+struct cmp_loader_n<sizeof(double), OP, T1, Tvec>
+{
+    typedef OP<T1, Tvec> op;
+    enum {step = Tvec::nlanes};
+
+    static inline void l(const T1* src1, const T1* src2, uchar* dst)
+    {
+        v_uint64 c0 = v_reinterpret_as_u64(op::r(vx_load(src1), vx_load(src2)));
+        v_uint64 c1 = v_reinterpret_as_u64(op::r(vx_load(src1 + step), vx_load(src2 + step)));
+        v_uint64 c2 = v_reinterpret_as_u64(op::r(vx_load(src1 + step * 2), vx_load(src2 + step * 2)));
+        v_uint64 c3 = v_reinterpret_as_u64(op::r(vx_load(src1 + step * 3), vx_load(src2 + step * 3)));
+
+        v_uint64 c4 = v_reinterpret_as_u64(op::r(vx_load(src1 + step * 4), vx_load(src2 + step * 4)));
+        v_uint64 c5 = v_reinterpret_as_u64(op::r(vx_load(src1 + step * 5), vx_load(src2 + step * 5)));
+        v_uint64 c6 = v_reinterpret_as_u64(op::r(vx_load(src1 + step * 6), vx_load(src2 + step * 6)));
+        v_uint64 c7 = v_reinterpret_as_u64(op::r(vx_load(src1 + step * 7), vx_load(src2 + step * 7)));
+
+        v_uint16 p0 = v_pack(v_pack(c0, c1), v_pack(c2, c3));
+        v_uint16 p1 = v_pack(v_pack(c4, c5), v_pack(c6, c7));
+        v_store(dst, v_pack(p0, p1));
+    }
+};
+#endif // CV_SIMD_64F
+
+#endif // CV_SIMD
+
+//////////////////////////// Loops /////////////////////////////////
+
+template<template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
+static void cmp_loop(const T1* src1, size_t step1, const T1* src2, size_t step2, uchar* dst, size_t step, int width, int height)
+{
+    typedef OP<T1, Tvec> op;
+#if CV_SIMD
+    typedef cmp_loader_n<sizeof(T1), OP, T1, Tvec> ldr;
+    const int wide_step = Tvec::nlanes * sizeof(T1);
+#endif // CV_SIMD
+
+    for (; height--;
+        src1 = (const T1 *)((const uchar *)src1 + step1),
+        src2 = (const T1 *)((const uchar *)src2 + step2),
+        dst  += step
+    )
+    {
+        int x = 0;
+
+    #if CV_SIMD
+        for (; x <= width - wide_step; x += wide_step)
+        {
+            ldr::l(src1 + x, src2 + x, dst + x);
+        }
+    #endif // CV_SIMD
+
+    #if CV_ENABLE_UNROLLED || CV_SIMD_WIDTH > 16
+        while (x <= width - 4)
+        {
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+        }
+    #endif
+
+        for (; x < width; x++)
+            dst[x] = op::r(src1[x], src2[x]);
+    }
+
+    vx_cleanup();
+}
+
+#if !CV_SIMD_64F
+template< template<typename T1, typename Tvec> class OP, typename T1>
+static void cmp_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t step2, uchar* dst, size_t step, int width, int height)
+{
+    typedef OP<T1, v_int32 /*dummy*/> op;
+
+    for (; height--;
+        src1 = (const T1 *)((const uchar *)src1 + step1),
+        src2 = (const T1 *)((const uchar *)src2 + step2),
+        dst += step
+    )
+    {
+        int x = 0;
+
+        while (x <= width - 4)
+        {
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+        }
+
+        for (; x < width; x++)
+            dst[x] = op::r(src1[x], src2[x]);
+    }
+}
+#endif //!CV_SIMD_64F
+
+
+template<typename T1, typename Tvec>
+static void cmp_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
+                     uchar* dst, size_t step, int width, int height, int cmpop)
+{
+    switch(cmpop)
+    {
+    case CMP_LT:
+        cmp_loop<op_cmplt, T1, Tvec>(src1, step1, src2, step2, dst, step, width, height);
+        break;
+    case CMP_GT:
+        cmp_loop<op_cmplt, T1, Tvec>(src2, step2, src1, step1, dst, step, width, height);
+        break;
+    case CMP_LE:
+        cmp_loop<op_cmple, T1, Tvec>(src1, step1, src2, step2, dst, step, width, height);
+        break;
+    case CMP_GE:
+        cmp_loop<op_cmple, T1, Tvec>(src2, step2, src1, step1, dst, step, width, height);
+        break;
+    case CMP_EQ:
+        cmp_loop<op_cmpeq, T1, Tvec>(src1, step1, src2, step2, dst, step, width, height);
+        break;
+    default:
+        CV_Assert(cmpop == CMP_NE);
+        cmp_loop<op_cmpne, T1, Tvec>(src1, step1, src2, step2, dst, step, width, height);
+        break;
+    }
+}
+
+#if !CV_SIMD_64F
+static void cmp_loop_nosimd(const double* src1, size_t step1, const double* src2, size_t step2,
+                            uchar* dst, size_t step, int width, int height, int cmpop)
+{
+    switch(cmpop)
+    {
+    case CMP_LT:
+        cmp_loop_nosimd<op_cmplt, double>(src1, step1, src2, step2, dst, step, width, height);
+        break;
+    case CMP_GT:
+        cmp_loop_nosimd<op_cmplt, double>(src2, step2, src1, step1, dst, step, width, height);
+        break;
+    case CMP_LE:
+        cmp_loop_nosimd<op_cmple, double>(src1, step1, src2, step2, dst, step, width, height);
+        break;
+    case CMP_GE:
+        cmp_loop_nosimd<op_cmple, double>(src2, step2, src1, step1, dst, step, width, height);
+        break;
+    case CMP_EQ:
+        cmp_loop_nosimd<op_cmpeq, double>(src1, step1, src2, step2, dst, step, width, height);
+        break;
+    default:
+        CV_Assert(cmpop == CMP_NE);
+        cmp_loop_nosimd<op_cmpne, double>(src1, step1, src2, step2, dst, step, width, height);
+        break;
+    }
+}
+#endif // !CV_SIMD_64F
+
+#endif // ARITHM_DEFINITIONS_ONLY
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+
+#ifndef SIMD_GUARD
+#define CMP_ARGS(_T1) const _T1* src1, size_t step1, const _T1* src2, size_t step2, \
+                           uchar* dst, size_t step, int width, int height
+
+#define CMP_ARGS_PASS src1, step1, src2, step2, dst, step, width, height
+#endif // SIMD_GUARD
+
+#undef DECLARE_SIMD_FUN
+#define DECLARE_SIMD_FUN(fun, _T1) void fun(CMP_ARGS(_T1), int cmpop);
+
+#undef DISPATCH_SIMD_FUN
+#define DISPATCH_SIMD_FUN(fun, _T1, _Tvec, ...)                                          \
+    void fun(CMP_ARGS(_T1), void* _cmpop)                                                \
+    {                                                                                    \
+        CV_INSTRUMENT_REGION();                                                          \
+        CALL_HAL(fun, __CV_CAT(cv_hal_, fun), CMP_ARGS_PASS, *(int*)_cmpop)              \
+        ARITHM_CALL_IPP(__CV_CAT(arithm_ipp_, fun), CMP_ARGS_PASS, *(int*)_cmpop)        \
+        CV_CPU_DISPATCH(fun, (CMP_ARGS_PASS, *(int*)_cmpop), CV_CPU_DISPATCH_MODES_ALL); \
+    }
+
+#undef DEFINE_SIMD_FUN
+#define DEFINE_SIMD_FUN(fun, _T1, _Tvec, ...)       \
+    void fun(CMP_ARGS(_T1), int cmpop)              \
+    {                                               \
+        CV_INSTRUMENT_REGION();                     \
+        cmp_loop<_T1, _Tvec>(CMP_ARGS_PASS, cmpop); \
+    }
+
+#undef DEFINE_NOSIMD_FUN
+#define DEFINE_NOSIMD_FUN(fun, _T1, _Tvec, ...)     \
+    void fun(CMP_ARGS(_T1), int cmpop)              \
+    {                                               \
+        CV_INSTRUMENT_REGION();                     \
+        cmp_loop_nosimd(CMP_ARGS_PASS, cmpop);      \
+    }
+
+// todo: try to avoid define dispatcher functions using macros with these such cases
+DEFINE_SIMD_ALL(cmp)
 
 #ifndef ARITHM_DISPATCHING_ONLY
     CV_CPU_OPTIMIZATION_NAMESPACE_END
