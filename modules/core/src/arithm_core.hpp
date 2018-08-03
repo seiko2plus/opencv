@@ -147,67 +147,6 @@ template<typename T> struct OpNot
 
 //=============================================================================
 
-template<typename T> static void
-cmp_(const T* src1, size_t step1, const T* src2, size_t step2,
-     uchar* dst, size_t step, int width, int height, int code)
-{
-    step1 /= sizeof(src1[0]);
-    step2 /= sizeof(src2[0]);
-    if( code == CMP_GE || code == CMP_LT )
-    {
-        std::swap(src1, src2);
-        std::swap(step1, step2);
-        code = code == CMP_GE ? CMP_LE : CMP_GT;
-    }
-
-    Cmp_SIMD<T> vop(code);
-
-    if( code == CMP_GT || code == CMP_LE )
-    {
-        int m = code == CMP_GT ? 0 : 255;
-        for( ; height--; src1 += step1, src2 += step2, dst += step )
-        {
-            int x = vop(src1, src2, dst, width);
-            #if CV_ENABLE_UNROLLED
-            for( ; x <= width - 4; x += 4 )
-            {
-                int t0, t1;
-                t0 = -(src1[x] > src2[x]) ^ m;
-                t1 = -(src1[x+1] > src2[x+1]) ^ m;
-                dst[x] = (uchar)t0; dst[x+1] = (uchar)t1;
-                t0 = -(src1[x+2] > src2[x+2]) ^ m;
-                t1 = -(src1[x+3] > src2[x+3]) ^ m;
-                dst[x+2] = (uchar)t0; dst[x+3] = (uchar)t1;
-            }
-            #endif
-            for( ; x < width; x++ )
-                dst[x] = (uchar)(-(src1[x] > src2[x]) ^ m);
-        }
-    }
-    else if( code == CMP_EQ || code == CMP_NE )
-    {
-        int m = code == CMP_EQ ? 0 : 255;
-        for( ; height--; src1 += step1, src2 += step2, dst += step )
-        {
-            int x = 0;
-            #if CV_ENABLE_UNROLLED
-            for( ; x <= width - 4; x += 4 )
-            {
-                int t0, t1;
-                t0 = -(src1[x] == src2[x]) ^ m;
-                t1 = -(src1[x+1] == src2[x+1]) ^ m;
-                dst[x] = (uchar)t0; dst[x+1] = (uchar)t1;
-                t0 = -(src1[x+2] == src2[x+2]) ^ m;
-                t1 = -(src1[x+3] == src2[x+3]) ^ m;
-                dst[x+2] = (uchar)t0; dst[x+3] = (uchar)t1;
-            }
-            #endif
-            for( ; x < width; x++ )
-                dst[x] = (uchar)(-(src1[x] == src2[x]) ^ m);
-        }
-    }
-}
-
 template<typename T, typename WT> static void
 mul_( const T* src1, size_t step1, const T* src2, size_t step2,
       T* dst, size_t step, int width, int height, WT scale )
