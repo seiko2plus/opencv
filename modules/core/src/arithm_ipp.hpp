@@ -244,6 +244,69 @@ inline int arithm_ipp_not8u(const uchar* src1, size_t step1, uchar* dst, size_t 
     return 0;
 }
 
+//=======================================
+// Compare
+//=======================================
+
+#define ARITHM_IPP_CMP(fun, ...)                          \
+do {                                                      \
+    if (!CV_IPP_CHECK_COND)                               \
+        return 0;                                         \
+    IppCmpOp op = arithm_ipp_convert_cmp(cmpop);          \
+    if (op < 0)                                           \
+        return 0;                                         \
+    if (height == 1)                                      \
+        step1 = step2 = step = width * sizeof(dst[0]);    \
+    if (0 <= CV_INSTRUMENT_FUN_IPP(fun, __VA_ARGS__, op)) \
+    {                                                     \
+        CV_IMPL_ADD(CV_IMPL_IPP);                         \
+        return 1;                                         \
+    }                                                     \
+    setIppErrorStatus();                                  \
+    return 0;                                             \
+} while(0)
+
+inline IppCmpOp arithm_ipp_convert_cmp(int cmpop)
+{
+    switch(cmpop)
+    {
+        case CMP_EQ: return ippCmpEq;
+        case CMP_GT: return ippCmpGreater;
+        case CMP_GE: return ippCmpGreaterEq;
+        case CMP_LT: return ippCmpLess;
+        case CMP_LE: return ippCmpLessEq;
+        default:     return (IppCmpOp)-1;
+    }
+}
+
+inline int arithm_ipp_cmp8u(const uchar* src1, size_t step1, const uchar* src2, size_t step2,
+                            uchar* dst, size_t step, int width, int height, int cmpop)
+{
+    ARITHM_IPP_CMP(ippiCompare_8u_C1R, src1, (int)step1, src2, (int)step2, dst, (int)step, ippiSize(width, height));
+}
+
+inline int arithm_ipp_cmp16u(const ushort* src1, size_t step1, const ushort* src2, size_t step2,
+                            uchar* dst, size_t step, int width, int height, int cmpop)
+{
+    ARITHM_IPP_CMP(ippiCompare_16u_C1R, src1, (int)step1, src2, (int)step2, dst, (int)step, ippiSize(width, height));
+}
+
+inline int arithm_ipp_cmp16s(const short* src1, size_t step1, const short* src2, size_t step2,
+                             uchar* dst, size_t step, int width, int height, int cmpop)
+{
+    ARITHM_IPP_CMP(ippiCompare_16s_C1R, src1, (int)step1, src2, (int)step2, dst, (int)step, ippiSize(width, height));
+}
+
+inline int arithm_ipp_cmp32f(const float* src1, size_t step1, const float* src2, size_t step2,
+                             uchar* dst, size_t step, int width, int height, int cmpop)
+{
+    ARITHM_IPP_CMP(ippiCompare_32f_C1R, src1, (int)step1, src2, (int)step2, dst, (int)step, ippiSize(width, height));
+}
+
+#define arithm_ipp_cmp8s(...)  0
+#define arithm_ipp_cmp32s(...) 0
+#define arithm_ipp_cmp64f(...) 0
+
 /** empty block in case if you have "fun"
 #define arithm_ipp_8u(...)  0
 #define arithm_ipp_8s(...)  0
