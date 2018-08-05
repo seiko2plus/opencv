@@ -563,7 +563,6 @@ struct cmp_loader_n<sizeof(uchar), OP, T1, Tvec>
     }
 };
 
-// todo: optimize packing, we need a new universal intrinsic
 template<template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
 struct cmp_loader_n<sizeof(ushort), OP, T1, Tvec>
 {
@@ -574,7 +573,7 @@ struct cmp_loader_n<sizeof(ushort), OP, T1, Tvec>
     {
         Tvec c0 = op::r(vx_load(src1), vx_load(src2));
         Tvec c1 = op::r(vx_load(src1 + step), vx_load(src2 + step));
-        v_store(dst, v_pack(v_reinterpret_as_u16(c0), v_reinterpret_as_u16(c1)));
+        v_store(dst, v_pack_b(v_reinterpret_as_u16(c0), v_reinterpret_as_u16(c1)));
     }
 };
 
@@ -590,11 +589,10 @@ struct cmp_loader_n<sizeof(unsigned), OP, T1, Tvec>
         v_uint32 c1 = v_reinterpret_as_u32(op::r(vx_load(src1 + step), vx_load(src2 + step)));
         v_uint32 c2 = v_reinterpret_as_u32(op::r(vx_load(src1 + step * 2), vx_load(src2 + step * 2)));
         v_uint32 c3 = v_reinterpret_as_u32(op::r(vx_load(src1 + step * 3), vx_load(src2 + step * 3)));
-        v_store(dst, v_pack(v_pack(c0, c1), v_pack(c2, c3)));
+        v_store(dst, v_pack_b(c0, c1, c2, c3));
     }
 };
 
-#if CV_SIMD_64F
 template<template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
 struct cmp_loader_n<sizeof(double), OP, T1, Tvec>
 {
@@ -612,13 +610,9 @@ struct cmp_loader_n<sizeof(double), OP, T1, Tvec>
         v_uint64 c5 = v_reinterpret_as_u64(op::r(vx_load(src1 + step * 5), vx_load(src2 + step * 5)));
         v_uint64 c6 = v_reinterpret_as_u64(op::r(vx_load(src1 + step * 6), vx_load(src2 + step * 6)));
         v_uint64 c7 = v_reinterpret_as_u64(op::r(vx_load(src1 + step * 7), vx_load(src2 + step * 7)));
-
-        v_uint16 p0 = v_pack(v_pack(c0, c1), v_pack(c2, c3));
-        v_uint16 p1 = v_pack(v_pack(c4, c5), v_pack(c6, c7));
-        v_store(dst, v_pack(p0, p1));
+        v_store(dst, v_pack_b(c0, c1, c2, c3, c4, c5, c6, c7));
     }
 };
-#endif // CV_SIMD_64F
 
 #endif // CV_SIMD
 
@@ -665,35 +659,6 @@ static void cmp_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
     vx_cleanup();
 }
 
-#if !CV_SIMD_64F
-template< template<typename T1, typename Tvec> class OP, typename T1>
-static void cmp_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t step2, uchar* dst, size_t step, int width, int height)
-{
-    typedef OP<T1, v_int32 /*dummy*/> op;
-
-    for (; height--;
-        src1 = (const T1 *)((const uchar *)src1 + step1),
-        src2 = (const T1 *)((const uchar *)src2 + step2),
-        dst += step
-    )
-    {
-        int x = 0;
-
-        while (x <= width - 4)
-        {
-            dst[x] = op::r(src1[x], src2[x]); x++;
-            dst[x] = op::r(src1[x], src2[x]); x++;
-            dst[x] = op::r(src1[x], src2[x]); x++;
-            dst[x] = op::r(src1[x], src2[x]); x++;
-        }
-
-        for (; x < width; x++)
-            dst[x] = op::r(src1[x], src2[x]);
-    }
-}
-#endif //!CV_SIMD_64F
-
-
 template<typename T1, typename Tvec>
 static void cmp_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
                      uchar* dst, size_t step, int width, int height, int cmpop)
@@ -723,6 +688,31 @@ static void cmp_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
 }
 
 #if !CV_SIMD_64F
+template< template<typename T1, typename Tvec> class OP, typename T1>
+static void cmp_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t step2, uchar* dst, size_t step, int width, int height)
+{
+    typedef OP<T1, v_int32 /*dummy*/> op;
+
+    for (; height--;
+        src1 = (const T1 *)((const uchar *)src1 + step1),
+        src2 = (const T1 *)((const uchar *)src2 + step2),
+        dst += step
+    )
+    {
+        int x = 0;
+
+        while (x <= width - 4)
+        {
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+            dst[x] = op::r(src1[x], src2[x]); x++;
+        }
+
+        for (; x < width; x++)
+            dst[x] = op::r(src1[x], src2[x]);
+    }
+}
 static void cmp_loop_nosimd(const double* src1, size_t step1, const double* src2, size_t step2,
                             uchar* dst, size_t step, int width, int height, int cmpop)
 {
