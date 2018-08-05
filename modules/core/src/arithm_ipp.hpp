@@ -241,6 +241,7 @@ inline int arithm_ipp_not8u(const uchar* src1, size_t step1, uchar* dst, size_t 
         CV_IMPL_ADD(CV_IMPL_IPP);
         return 1;
     }
+    setIppErrorStatus();
     return 0;
 }
 
