@@ -534,7 +534,6 @@ void v_rshr_pack_store(short* ptr, const v_int32x4& a)
     _mm_storel_epi64((__m128i*)ptr, _mm_packs_epi32(a1, a1));
 }
 
-
 // [a0 0 | b0 0]  [a1 0 | b1 0]
 inline v_uint32x4 v_pack(const v_uint64x2& a, const v_uint64x2& b)
 {
@@ -583,6 +582,35 @@ void v_rshr_pack_store(unsigned* ptr, const v_uint64x2& a)
     __m128i a1 = _mm_srli_epi64(_mm_add_epi64(a.val, delta2.val), n);
     __m128i a2 = _mm_shuffle_epi32(a1, _MM_SHUFFLE(0, 2, 2, 0));
     _mm_storel_epi64((__m128i*)ptr, a2);
+}
+
+// pack boolean
+inline v_uint8x16 v_pack_b(const v_uint16x8& a, const v_uint16x8& b)
+{
+    __m128i ab = _mm_packs_epi16(a.val, b.val);
+    return v_uint8x16(ab);
+}
+
+inline v_uint8x16 v_pack_b(const v_uint32x4& a, const v_uint32x4& b,
+                           const v_uint32x4& c, const v_uint32x4& d)
+{
+    __m128i ab = _mm_packs_epi32(a.val, b.val);
+    __m128i cd = _mm_packs_epi32(c.val, d.val);
+    return v_uint8x16(_mm_packs_epi16(ab, cd));
+}
+
+inline v_uint8x16 v_pack_b(const v_uint64x2& a, const v_uint64x2& b, const v_uint64x2& c,
+                           const v_uint64x2& d, const v_uint64x2& e, const v_uint64x2& f,
+                           const v_uint64x2& g, const v_uint64x2& h)
+{
+    __m128i ab = _mm_packs_epi32(a.val, b.val);
+    __m128i cd = _mm_packs_epi32(c.val, d.val);
+    __m128i ef = _mm_packs_epi32(e.val, f.val);
+    __m128i gh = _mm_packs_epi32(g.val, h.val);
+
+    __m128i abcd = _mm_packs_epi32(ab, cd);
+    __m128i efgh = _mm_packs_epi32(ef, gh);
+    return v_uint8x16(_mm_packs_epi16(abcd, efgh));
 }
 
 inline __m128i v_sign_epi64(__m128i a)

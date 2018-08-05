@@ -1603,6 +1603,40 @@ void v_rshr_pack_store(int* ptr, const v_int64x4& a)
     v_pack_store(ptr, (a + delta) >> n);
 }
 
+// pack boolean
+inline v_uint8x32 v_pack_b(const v_uint16x16& a, const v_uint16x16& b)
+{
+    __m256i ab = _mm256_packs_epi16(a.val, b.val);
+    return v_uint8x32(_v256_shuffle_odd_64(ab));
+}
+
+inline v_uint8x32 v_pack_b(const v_uint32x8& a, const v_uint32x8& b,
+                           const v_uint32x8& c, const v_uint32x8& d)
+{
+    __m256i ab = _mm256_packs_epi32(a.val, b.val);
+    __m256i cd = _mm256_packs_epi32(c.val, d.val);
+
+    __m256i abcd = _v256_shuffle_odd_64(_mm256_packs_epi16(ab, cd));
+    return v_uint8x32(_mm256_shuffle_epi32(abcd, _MM_SHUFFLE(3, 1, 2, 0)));
+}
+
+inline v_uint8x32 v_pack_b(const v_uint64x4& a, const v_uint64x4& b, const v_uint64x4& c,
+                           const v_uint64x4& d, const v_uint64x4& e, const v_uint64x4& f,
+                           const v_uint64x4& g, const v_uint64x4& h)
+{
+    __m256i ab = _mm256_packs_epi32(a.val, b.val);
+    __m256i cd = _mm256_packs_epi32(c.val, d.val);
+    __m256i ef = _mm256_packs_epi32(e.val, f.val);
+    __m256i gh = _mm256_packs_epi32(g.val, h.val);
+
+    __m256i abcd = _mm256_packs_epi32(ab, cd);
+    __m256i efgh = _mm256_packs_epi32(ef, gh);
+    __m256i pkall = _v256_shuffle_odd_64(_mm256_packs_epi16(abcd, efgh));
+
+    __m256i rev = _mm256_alignr_epi8(pkall, pkall, 8);
+    return v_uint8x32(_mm256_unpacklo_epi16(pkall, rev));
+}
+
 /* Recombine */
 // its up there with load and store operations
 

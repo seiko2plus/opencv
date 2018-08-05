@@ -109,7 +109,7 @@ These operations allow to reorder or recombine elements in one or multiple vecto
 
 - Interleave, deinterleave (2, 3 and 4 channels): @ref v_load_deinterleave, @ref v_store_interleave
 - Expand: @ref v_load_expand, @ref v_load_expand_q, @ref v_expand
-- Pack: @ref v_pack, @ref v_pack_u, @ref v_rshr_pack, @ref v_rshr_pack_u,
+- Pack: @ref v_pack, @ref v_pack_u, @ref v_pack_b, @ref v_rshr_pack, @ref v_rshr_pack_u,
 @ref v_pack_store, @ref v_pack_u_store, @ref v_rshr_pack_store, @ref v_rshr_pack_u_store
 - Recombine: @ref v_zip, @ref v_recombine, @ref v_combine_low, @ref v_combine_high
 - Extract: @ref v_extract
@@ -201,6 +201,7 @@ Regular integers:
 |mask               | x | x | x | x | x | x |
 |pack               | x | x | x | x | x | x |
 |pack_u             | x |   | x |   |   |   |
+|pack_b             | x |   |   |   |   |   |
 |unpack             | x | x | x | x | x | x |
 |extract            | x | x | x | x | x | x |
 |rotate (lanes)     | x | x | x | x | x | x |
@@ -2025,6 +2026,103 @@ OPENCV_HAL_IMPL_C_RSHR_PACK_STORE(v_uint64x2, uint64, v_uint32x4, unsigned, pack
 OPENCV_HAL_IMPL_C_RSHR_PACK_STORE(v_int64x2, int64, v_int32x4, int, pack, static_cast)
 OPENCV_HAL_IMPL_C_RSHR_PACK_STORE(v_int16x8, short, v_uint8x16, uchar, pack_u, saturate_cast)
 OPENCV_HAL_IMPL_C_RSHR_PACK_STORE(v_int32x4, int, v_uint16x8, ushort, pack_u, saturate_cast)
+//! @}
+
+//! @cond IGNORED
+template<typename _Tpm, typename _Tp, int n>
+inline void _pack_b(_Tpm* mptr, const v_reg<_Tp, n>& a, const v_reg<_Tp, n>& b)
+{
+    for (int i = 0; i < n; ++i)
+    {
+        mptr[i] = (_Tpm)a.s[i];
+        mptr[i + n] = (_Tpm)b.s[i];
+    }
+}
+//! @endcond
+
+//! @name Pack boolean values
+//! @{
+//! @brief Pack boolean values from multiple vectors to one unsigned 8-bit integer vector
+//!
+//! @note Must provide valid boolean values to guarantee same result for all architectures.
+
+/** @brief
+//! For 16-bit boolean values
+
+Scheme:
+@code
+a  {0xFFFF 0 0 0xFFFF 0 0xFFFF 0xFFFF 0}
+b  {0xFFFF 0 0xFFFF 0 0 0xFFFF 0 0xFFFF}
+===============
+{
+   0xFF 0 0 0xFF 0 0xFF 0xFF 0
+   0xFF 0 0xFF 0 0 0xFF 0 0xFF
+}
+@endcode */
+
+inline v_uint8x16 v_pack_b(const v_uint16x8& a, const v_uint16x8& b)
+{
+    v_uint8x16 mask;
+    _pack_b(mask.s, a, b);
+    return mask;
+}
+
+/** @overload
+For 32-bit boolean values
+
+Scheme:
+@code
+a  {0xFFFF.. 0 0 0xFFFF..}
+b  {0 0xFFFF.. 0xFFFF.. 0}
+c  {0xFFFF.. 0 0xFFFF.. 0}
+d  {0 0xFFFF.. 0 0xFFFF..}
+===============
+{
+   0xFF 0 0 0xFF 0 0xFF 0xFF 0
+   0xFF 0 0xFF 0 0 0xFF 0 0xFF
+}
+@endcode */
+
+inline v_uint8x16 v_pack_b(const v_uint32x4& a, const v_uint32x4& b,
+                           const v_uint32x4& c, const v_uint32x4& d)
+{
+    v_uint8x16 mask;
+    _pack_b(mask.s, a, b);
+    _pack_b(mask.s + 8, c, d);
+    return mask;
+}
+
+/** @overload
+For 64-bit boolean values
+
+Scheme:
+@code
+a  {0xFFFF.. 0}
+b  {0 0xFFFF..}
+c  {0xFFFF.. 0}
+d  {0 0xFFFF..}
+
+e  {0xFFFF.. 0}
+f  {0xFFFF.. 0}
+g  {0 0xFFFF..}
+h  {0 0xFFFF..}
+===============
+{
+   0xFF 0 0 0xFF 0xFF 0 0 0xFF
+   0xFF 0 0xFF 0 0 0xFF 0 0xFF
+}
+@endcode */
+inline v_uint8x16 v_pack_b(const v_uint64x2& a, const v_uint64x2& b, const v_uint64x2& c,
+                           const v_uint64x2& d, const v_uint64x2& e, const v_uint64x2& f,
+                           const v_uint64x2& g, const v_uint64x2& h)
+{
+    v_uint8x16 mask;
+    _pack_b(mask.s, a, b);
+    _pack_b(mask.s + 4, c, d);
+    _pack_b(mask.s + 8, e, f);
+    _pack_b(mask.s + 12, g, h);
+    return mask;
+}
 //! @}
 
 /** @brief Matrix multiplication
