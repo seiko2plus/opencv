@@ -308,6 +308,77 @@ inline int arithm_ipp_cmp32f(const float* src1, size_t step1, const float* src2,
 #define arithm_ipp_cmp32s(...) 0
 #define arithm_ipp_cmp64f(...) 0
 
+//=======================================
+// Multiply
+//=======================================
+
+#define ARITHM_IPP_MUL(fun, ...)                      \
+do {                                                  \
+    if (!CV_IPP_CHECK_COND)                           \
+        return 0;                                     \
+    float fscale = (float)scale;                      \
+    if (std::fabs(fscale - 1) > FLT_EPSILON)          \
+        return 0;                                     \
+    if (0 <= CV_INSTRUMENT_FUN_IPP(fun, __VA_ARGS__)) \
+    {                                                 \
+        CV_IMPL_ADD(CV_IMPL_IPP);                     \
+        return 1;                                     \
+    }                                                 \
+    setIppErrorStatus();                              \
+    return 0;                                         \
+} while(0)
+
+inline int arithm_ipp_mul8u(const uchar *src1, size_t step1, const uchar *src2, size_t step2,
+                            uchar *dst, size_t step, int width, int height, double scale)
+{
+    ARITHM_IPP_MUL(ippiMul_8u_C1RSfs, src1, (int)step1, src2, (int)step2,dst, (int)step, ippiSize(width, height), 0);
+}
+inline int arithm_ipp_mul16u(const ushort *src1, size_t step1, const ushort *src2, size_t step2,
+                            ushort *dst, size_t step, int width, int height, double scale)
+{
+    ARITHM_IPP_MUL(ippiMul_16u_C1RSfs, src1, (int)step1, src2, (int)step2,dst, (int)step, ippiSize(width, height), 0);
+}
+
+inline int arithm_ipp_mul16s(const short *src1, size_t step1, const short *src2, size_t step2,
+                            short *dst, size_t step, int width, int height, double scale)
+{
+    ARITHM_IPP_MUL(ippiMul_16s_C1RSfs, src1, (int)step1, src2, (int)step2,dst, (int)step, ippiSize(width, height), 0);
+}
+
+inline int arithm_ipp_mul32f(const float *src1, size_t step1, const float *src2, size_t step2,
+                            float *dst, size_t step, int width, int height, double scale)
+{
+    ARITHM_IPP_MUL(ippiMul_32f_C1R, src1, (int)step1, src2, (int)step2,dst, (int)step, ippiSize(width, height));
+}
+
+#define arithm_ipp_mul8s(...)  0
+#define arithm_ipp_mul32s(...) 0
+#define arithm_ipp_mul64f(...) 0
+
+//=======================================
+// Div
+//=======================================
+
+#define arithm_ipp_div8u(...)  0
+#define arithm_ipp_div8s(...)  0
+#define arithm_ipp_div16u(...) 0
+#define arithm_ipp_div16s(...) 0
+#define arithm_ipp_div32s(...) 0
+#define arithm_ipp_div32f(...) 0
+#define arithm_ipp_div64f(...) 0
+
+//=======================================
+// AddWeighted
+//=======================================
+
+#define arithm_ipp_addWeighted8u(...)  0
+#define arithm_ipp_addWeighted8s(...)  0
+#define arithm_ipp_addWeighted16u(...) 0
+#define arithm_ipp_addWeighted16s(...) 0
+#define arithm_ipp_addWeighted32s(...) 0
+#define arithm_ipp_addWeighted32f(...) 0
+#define arithm_ipp_addWeighted64f(...) 0
+
 /** empty block in case if you have "fun"
 #define arithm_ipp_8u(...)  0
 #define arithm_ipp_8s(...)  0
