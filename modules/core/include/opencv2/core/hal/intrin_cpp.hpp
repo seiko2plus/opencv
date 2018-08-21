@@ -1628,6 +1628,18 @@ template<int n> inline v_reg<int, n*2> v_round(const v_reg<double, n>& a)
 }
 
 /** @overload */
+template<int n> inline v_reg<int, n*2> v_round(const v_reg<double, n>& a, const v_reg<double, n>& b)
+{
+    v_reg<int, n*2> c;
+    for( int i = 0; i < n; i++ )
+    {
+        c.s[i] = cvRound(a.s[i]);
+        c.s[i+n] = cvRound(b.s[i]);
+    }
+    return c;
+}
+
+/** @overload */
 template<int n> inline v_reg<int, n*2> v_floor(const v_reg<double, n>& a)
 {
     v_reg<int, n> c;
