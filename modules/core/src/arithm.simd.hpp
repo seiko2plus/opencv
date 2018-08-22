@@ -104,6 +104,10 @@ namespace cv { namespace hal {
 
 #ifdef ARITHM_DEFINITIONS_ONLY
 
+#if !CV_SIMD_64F
+typedef int v_float64; // dummy
+#endif
+
 //=======================================
 // Arithmetic and logical operations
 // +, -, *, /, &, |, ^, ~, abs ...
@@ -385,10 +389,10 @@ static void bin_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
 }
 
 #if !CV_SIMD_64F
-template< template<typename T1, typename Tvec> class OP, typename T1>
+template< template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
 static void bin_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t step2, T1* dst, size_t step, int width, int height)
 {
-    typedef OP<T1, v_int32 /*dummy*/> op;
+    typedef OP<T1, Tvec/*dummy*/> op;
 
     for (; height--;
         src1 = (const T1 *)((const uchar *)src1 + step1),
@@ -410,6 +414,9 @@ static void bin_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t
             dst[x] = op::r(src1[x], src2[x]);
     }
 }
+#define BIN_LOOP64F bin_loop_nosimd
+#else
+#define BIN_LOOP64F bin_loop
 #endif //!CV_SIMD_64F
 
 #endif // ARITHM_DEFINITIONS_ONLY
@@ -445,11 +452,11 @@ static void bin_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t
     }
 
 #undef DEFINE_NOSIMD_FUN
-#define DEFINE_NOSIMD_FUN(fun, _T1, _OP)          \
-    void fun(BIN_ARGS(_T1))                       \
-    {                                             \
-        CV_INSTRUMENT_REGION();                   \
-        bin_loop_nosimd<_OP, _T1>(BIN_ARGS_PASS); \
+#define DEFINE_NOSIMD_FUN(fun, _T1, _OP)                     \
+    void fun(BIN_ARGS(_T1))                                  \
+    {                                                        \
+        CV_INSTRUMENT_REGION();                              \
+        bin_loop_nosimd<_OP, _T1, v_float64>(BIN_ARGS_PASS); \
     }
 
 DEFINE_SIMD_SAT(add, op_adds)
@@ -888,6 +895,32 @@ struct scalar_loader_n<sizeof(int), OP, int, T2, v_int32>
     }
 };
 
+template<template<typename T1, typename T2, typename Tvec> class OP, typename T2>
+struct scalar_loader_n<sizeof(float), OP, float, T2, v_float32>
+{
+    typedef OP<float, T2, v_float32> op;
+    enum {step = v_float32::nlanes};
+
+    static inline void l(const float* src1, const float* src2, const T2* scalar, float* dst)
+    {
+        v_float32 f0 = vx_load(src1);
+        v_float32 f1 = vx_load(src2);
+        v_float32 f2 = vx_load(src1 + step);
+        v_float32 f3 = vx_load(src2 + step);
+
+        f0 = op::r(f0, f1, scalar);
+        f0 = op::pre(f1, f0);
+
+        f2 = op::r(f2, f3, scalar);
+        f2 = op::pre(f3, f2);
+
+        v_store(dst, f0);
+        v_store(dst + step, f2);
+    }
+};
+#endif // CV_SIMD
+
+#if CV_SIMD_64F
 template<template<typename T1, typename T2, typename Tvec> class OP>
 struct scalar_loader_n<sizeof(int), OP, int, double, v_int32>
 {
@@ -923,30 +956,6 @@ struct scalar_loader_n<sizeof(int), OP, int, double, v_int32>
         v_float64 r1 = op64::r(f1, f3, scalar);
 
         return v_round(r0, r1);
-    }
-};
-
-template<template<typename T1, typename T2, typename Tvec> class OP, typename T2>
-struct scalar_loader_n<sizeof(float), OP, float, T2, v_float32>
-{
-    typedef OP<float, T2, v_float32> op;
-    enum {step = v_float32::nlanes};
-
-    static inline void l(const float* src1, const float* src2, const T2* scalar, float* dst)
-    {
-        v_float32 f0 = vx_load(src1);
-        v_float32 f1 = vx_load(src2);
-        v_float32 f2 = vx_load(src1 + step);
-        v_float32 f3 = vx_load(src2 + step);
-
-        f0 = op::r(f0, f1, scalar);
-        f0 = op::pre(f1, f0);
-
-        f2 = op::r(f2, f3, scalar);
-        f2 = op::pre(f3, f2);
-
-        v_store(dst, f0);
-        v_store(dst + step, f2);
     }
 };
 
@@ -987,9 +996,7 @@ struct scalar_loader_n<sizeof(float), OP, float, double, v_float32>
         return v_cvt_f32(r0, r1);
     }
 };
-#endif // CV_SIMD
 
-#if CV_SIMD_64F
 template<template<typename T1, typename T2, typename Tvec> class OP>
 struct scalar_loader_n<sizeof(double), OP, double, double, v_float64>
 {
@@ -1169,29 +1176,40 @@ template<typename T1, typename Tvec>
 void mul_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
               T1* dst, size_t step, int width, int height, const double* scalar)
 {
+    float fscalar = (float)*scalar;
     /*
-    if (*scalar == 1.0) {
+    if (fscalar == 1.0f)
+    {
         bin_loop<op_mul, T1, Tvec>(src1, step1, src2, step2, dst, step, width, height);
         return;
     }*/
-    float fscalar = (float)*scalar;
-    if (std::fabs(fscalar - 1) > FLT_EPSILON)
-        scalar_loop<op_mul_scale, T1, double, Tvec>(src1, step1, src2, step2,
-            dst, step, width, height, scalar);
-    else
-        scalar_loop<op_mul_scale, T1, float, Tvec>(src1, step1, src2, step2,
-            dst, step, width, height, &fscalar);
+    scalar_loop<op_mul_scale, T1, float, Tvec>(src1, step1, src2, step2,
+        dst, step, width, height, &fscalar);
+}
+
+template<typename T1, typename Tvec>
+void mul_loop_d(const T1* src1, size_t step1, const T1* src2, size_t step2,
+                T1* dst, size_t step, int width, int height, const double* scalar)
+{
+    if (std::fabs((*scalar) - 1.0) <= FLT_EPSILON)
+    {
+        mul_loop<T1, Tvec>(src1, step1, src2, step2, dst, step, width, height, scalar);
+        return;
+    }
+    SCALAR_LOOP64F<op_mul_scale, T1, double, Tvec>(src1, step1, src2, step2,
+        dst, step, width, height, scalar);
 }
 
 template<>
-void mul_loop<double, v_float64>(const double* src1, size_t step1, const double* src2, size_t step2,
-                                double* dst, size_t step, int width, int height, const double* scalar)
+void mul_loop_d<double, v_float64>(const double* src1, size_t step1, const double* src2, size_t step2,
+                                  double* dst, size_t step, int width, int height, const double* scalar)
 {
-    if (*scalar == 1.0) {
-        bin_loop<op_mul, double, v_float64>(src1, step1, src2, step2, dst, step, width, height);
+    if (*scalar == 1.0)
+    {
+        BIN_LOOP64F<op_mul, double, v_float64>(src1, step1, src2, step2, dst, step, width, height);
         return;
     }
-    scalar_loop<op_mul_scale, double, double, v_float64>(src1, step1, src2, step2,
+    SCALAR_LOOP64F<op_mul_scale, double, double, v_float64>(src1, step1, src2, step2,
         dst, step, width, height, scalar);
 }
 
@@ -1229,10 +1247,14 @@ void mul_loop<double, v_float64>(const double* src1, size_t step1, const double*
         op<_T1, _Tvec>(SCALAR_ARGS_PASS, scalar);      \
     }
 
+#undef DEFINE_NOSIMD_FUN
+#define DEFINE_NOSIMD_FUN(fun, _T1, _OP) \
+    DEFINE_SIMD_FUN(fun, _T1, v_float64, _OP)
+
 DEFINE_SIMD_SAT(mul, mul_loop)
-DEFINE_SIMD_F32(mul, mul_loop)
-DEFINE_SIMD_S32(mul, mul_loop)
-DEFINE_SIMD_F64(mul, mul_loop)
+DEFINE_SIMD_F32(mul, mul_loop_d)
+DEFINE_SIMD_S32(mul, mul_loop_d)
+DEFINE_SIMD_F64(mul, mul_loop_d)
 
 //=========================================================================
 // Div
@@ -1312,7 +1334,8 @@ template<typename T1, typename Tvec>
 void div_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
               T1* dst, size_t step, int width, int height, const double* scalar)
 {
-    /*if (*scalar == 1.0) {
+    /*if (*scalar == 1.0)
+    {
         bin_loop<op_div, T1, Tvec>(src1, step1, src2, step2, dst, step, width, height);
         return;
     }*/
@@ -1325,8 +1348,9 @@ template<>
 void div_loop<double, v_float64>(const double* src1, size_t step1, const double* src2, size_t step2,
                                 double* dst, size_t step, int width, int height, const double* scalar)
 {
-    if (*scalar == 1.0) {
-        bin_loop<op_div, double, v_float64>(src1, step1, src2, step2, dst, step, width, height);
+    if (*scalar == 1.0)
+    {
+        BIN_LOOP64F<op_div, double, v_float64>(src1, step1, src2, step2, dst, step, width, height);
         return;
     }
     SCALAR_LOOP64F<op_div_scale, double, double, v_float64>(src1, step1, src2, step2,
@@ -1458,7 +1482,7 @@ void add_weighted_loop(const T1* src1, size_t step1, const T1* src2, size_t step
                        T1* dst, size_t step, int width, int height, const double* scalars)
 {
     float fscalars[] = {(float)scalars[0], (float)scalars[1], (float)scalars[2]};
-    if (fscalars[1] == 1.0 && fscalars[2] == 0)
+    if (fscalars[1] == 1.0f && fscalars[2] == 0.0f)
     {
         scalar_loop<op_add_scale, T1, float, Tvec>(src1, step1, src2, step2,
             dst, step, width, height, fscalars);
@@ -1527,7 +1551,6 @@ DEFINE_SIMD_SAT(addWeighted, add_weighted_loop)
 DEFINE_SIMD_S32(addWeighted, add_weighted_loop_d)
 DEFINE_SIMD_F32(addWeighted, add_weighted_loop_d)
 DEFINE_SIMD_F64(addWeighted, add_weighted_loop_d)
-
 
 #ifndef ARITHM_DISPATCHING_ONLY
     CV_CPU_OPTIMIZATION_NAMESPACE_END
