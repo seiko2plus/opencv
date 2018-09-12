@@ -459,19 +459,21 @@ template<typename R> struct TheTest
         return *this;
     }
 
-    TheTest & test_addsub_wrap()
+    TheTest & test_arithm_wrap()
     {
         Data<R> dataA, dataB;
         dataB.reverse();
         R a = dataA, b = dataB;
 
         Data<R> resC = v_add_wrap(a, b),
-                resD = v_sub_wrap(a, b);
+                resD = v_sub_wrap(a, b),
+                resE = v_mul_wrap(a, b);
         for (int i = 0; i < R::nlanes; ++i)
         {
             SCOPED_TRACE(cv::format("i=%d", i));
             EXPECT_EQ((LaneType)(dataA[i] + dataB[i]), resC[i]);
             EXPECT_EQ((LaneType)(dataA[i] - dataB[i]), resD[i]);
+            EXPECT_EQ((LaneType)(dataA[i] * dataB[i]), resE[i]);
         }
         return *this;
     }
@@ -480,13 +482,14 @@ template<typename R> struct TheTest
     {
         Data<R> dataA, dataB;
         dataB.reverse();
-        R a = dataA, b = dataB;
+        dataA[1] = static_cast<LaneType>(std::numeric_limits<LaneType>::max());
 
+        R a = dataA, b = dataB;
         Data<R> resC = a * b;
         for (int i = 0; i < R::nlanes; ++i)
         {
             SCOPED_TRACE(cv::format("i=%d", i));
-            EXPECT_EQ(dataA[i] * dataB[i], resC[i]);
+            EXPECT_EQ(saturate_cast<LaneType>(dataA[i] * dataB[i]), resC[i]);
         }
 
         return *this;
@@ -1305,7 +1308,8 @@ void test_hal_intrin_uint8()
         .test_expand()
         .test_expand_q()
         .test_addsub()
-        .test_addsub_wrap()
+        .test_arithm_wrap()
+        .test_mul()
         .test_cmp()
         .test_logic()
         .test_min_max()
@@ -1339,7 +1343,8 @@ void test_hal_intrin_int8()
         .test_expand()
         .test_expand_q()
         .test_addsub()
-        .test_addsub_wrap()
+        .test_arithm_wrap()
+        .test_mul()
         .test_cmp()
         .test_logic()
         .test_min_max()
@@ -1365,7 +1370,7 @@ void test_hal_intrin_uint16()
         .test_interleave()
         .test_expand()
         .test_addsub()
-        .test_addsub_wrap()
+        .test_arithm_wrap()
         .test_mul()
         .test_mul_expand()
         .test_cmp()
@@ -1393,7 +1398,7 @@ void test_hal_intrin_int16()
         .test_interleave()
         .test_expand()
         .test_addsub()
-        .test_addsub_wrap()
+        .test_arithm_wrap()
         .test_mul()
         .test_mul_expand()
         .test_cmp()

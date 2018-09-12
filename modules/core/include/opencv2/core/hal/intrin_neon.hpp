@@ -464,10 +464,8 @@ OPENCV_HAL_IMPL_NEON_BIN_OP(+, v_int8x16, vqaddq_s8)
 OPENCV_HAL_IMPL_NEON_BIN_OP(-, v_int8x16, vqsubq_s8)
 OPENCV_HAL_IMPL_NEON_BIN_OP(+, v_uint16x8, vqaddq_u16)
 OPENCV_HAL_IMPL_NEON_BIN_OP(-, v_uint16x8, vqsubq_u16)
-OPENCV_HAL_IMPL_NEON_BIN_OP(*, v_uint16x8, vmulq_u16)
 OPENCV_HAL_IMPL_NEON_BIN_OP(+, v_int16x8, vqaddq_s16)
 OPENCV_HAL_IMPL_NEON_BIN_OP(-, v_int16x8, vqsubq_s16)
-OPENCV_HAL_IMPL_NEON_BIN_OP(*, v_int16x8, vmulq_s16)
 OPENCV_HAL_IMPL_NEON_BIN_OP(+, v_int32x4, vaddq_s32)
 OPENCV_HAL_IMPL_NEON_BIN_OP(-, v_int32x4, vsubq_s32)
 OPENCV_HAL_IMPL_NEON_BIN_OP(*, v_int32x4, vmulq_s32)
@@ -504,6 +502,33 @@ inline v_float32x4& operator /= (v_float32x4& a, const v_float32x4& b)
     return a;
 }
 #endif
+
+// saturating multiply 8-bit
+inline v_uint8x16 operator * (const v_uint8x16& a, const v_uint8x16& b)
+{
+    uint16x8_t p0 = vmull_u8(vget_low_u8(a.val), vget_low_u8(b.val));
+    uint16x8_t p1 = vmull_u8(vget_high_u8(a.val), vget_high_u8(b.val));
+    return v_uint8x16(vcombine_u8(vqmovn_u16(p0), vqmovn_u16(p1)));
+}
+inline v_int8x16 operator * (const v_int8x16& a, const v_int8x16& b)
+{
+    int16x8_t p0 = vmull_s8(vget_low_s8(a.val), vget_low_s8(b.val));
+    int16x8_t p1 = vmull_s8(vget_high_s8(a.val), vget_high_s8(b.val));
+    return v_int8x16(vcombine_s8(vqmovn_s16(p0), vqmovn_s16(p1)));
+}
+// saturating multiply 16-bit
+inline v_uint16x8 operator * (const v_uint16x8& a, const v_uint16x8& b)
+{
+    uint32x4_t p0 = vmull_u16(vget_low_u16(a.val), vget_low_u16(b.val));
+    uint32x4_t p1 = vmull_u16(vget_high_u16(a.val), vget_high_u16(b.val));
+    return v_uint16x8(vcombine_u16(vqmovn_u32(p0), vqmovn_u32(p1)));
+}
+inline v_int16x8 operator * (const v_int16x8& a, const v_int16x8& b)
+{
+    int32x4_t p0 = vmull_s16(vget_low_s16(a.val), vget_low_s16(b.val));
+    int32x4_t p1 = vmull_s16(vget_high_s16(a.val), vget_high_s16(b.val));
+    return v_int16x8(vcombine_s16(vqmovn_s32(p0), vqmovn_s32(p1)));
+}
 
 inline void v_mul_expand(const v_int16x8& a, const v_int16x8& b,
                          v_int32x4& c, v_int32x4& d)
@@ -743,6 +768,10 @@ OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_uint8x16, v_sub_wrap, vsubq_u8)
 OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_int8x16, v_sub_wrap, vsubq_s8)
 OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_uint16x8, v_sub_wrap, vsubq_u16)
 OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_int16x8, v_sub_wrap, vsubq_s16)
+OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_uint8x16, v_mul_wrap, vmulq_u8)
+OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_int8x16, v_mul_wrap, vmulq_s8)
+OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_uint16x8, v_mul_wrap, vmulq_u16)
+OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_int16x8, v_mul_wrap, vmulq_s16)
 
 OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_uint8x16, v_absdiff, vabdq_u8)
 OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_uint16x8, v_absdiff, vabdq_u16)
