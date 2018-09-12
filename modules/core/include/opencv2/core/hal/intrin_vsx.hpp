@@ -418,10 +418,8 @@ OPENCV_HAL_IMPL_VSX_BIN_OP(+, v_int8x16,  vec_adds)
 OPENCV_HAL_IMPL_VSX_BIN_OP(-, v_int8x16, vec_subs)
 OPENCV_HAL_IMPL_VSX_BIN_OP(+, v_uint16x8, vec_adds)
 OPENCV_HAL_IMPL_VSX_BIN_OP(-, v_uint16x8, vec_subs)
-OPENCV_HAL_IMPL_VSX_BIN_OP(*, v_uint16x8, vec_mul)
 OPENCV_HAL_IMPL_VSX_BIN_OP(+, v_int16x8, vec_adds)
 OPENCV_HAL_IMPL_VSX_BIN_OP(-, v_int16x8, vec_subs)
-OPENCV_HAL_IMPL_VSX_BIN_OP(*, v_int16x8, vec_mul)
 OPENCV_HAL_IMPL_VSX_BIN_OP(+, v_uint32x4, vec_add)
 OPENCV_HAL_IMPL_VSX_BIN_OP(-, v_uint32x4, vec_sub)
 OPENCV_HAL_IMPL_VSX_BIN_OP(*, v_uint32x4, vec_mul)
@@ -441,16 +439,29 @@ OPENCV_HAL_IMPL_VSX_BIN_OP(-, v_uint64x2, vec_sub)
 OPENCV_HAL_IMPL_VSX_BIN_OP(+, v_int64x2, vec_add)
 OPENCV_HAL_IMPL_VSX_BIN_OP(-, v_int64x2, vec_sub)
 
-inline void v_mul_expand(const v_int16x8& a, const v_int16x8& b, v_int32x4& c, v_int32x4& d)
+// saturating multiply
+template<typename _Tvec, typename _Texp>
+inline _Tvec __vec_muls(const _Tvec& a, const _Tvec& b)
 {
-    c.val = vec_mul(vec_unpackh(a.val), vec_unpackh(b.val));
-    d.val = vec_mul(vec_unpackl(a.val), vec_unpackl(b.val));
+    _Texp p0 = vec_mule(a, b);
+    _Texp p1 = vec_mulo(a, b);
+    return vec_packs(vec_mergeh(p0, p1), vec_mergel(p0, p1));
 }
-inline void v_mul_expand(const v_uint16x8& a, const v_uint16x8& b, v_uint32x4& c, v_uint32x4& d)
+#define OPENCV_HAL_IMPL_VSX_MULS(_Tvec, _Texp) __vec_muls<_Tvec, _Texp>
+
+OPENCV_HAL_IMPL_VSX_BIN_OP(*, v_uint8x16, OPENCV_HAL_IMPL_VSX_MULS(vec_uchar16, vec_ushort8))
+OPENCV_HAL_IMPL_VSX_BIN_OP(*, v_int8x16,  OPENCV_HAL_IMPL_VSX_MULS(vec_char16,  vec_short8))
+OPENCV_HAL_IMPL_VSX_BIN_OP(*, v_uint16x8, OPENCV_HAL_IMPL_VSX_MULS(vec_ushort8, vec_uint4))
+OPENCV_HAL_IMPL_VSX_BIN_OP(*, v_int16x8,  OPENCV_HAL_IMPL_VSX_MULS(vec_short8,  vec_int4))
+
+template<typename Tvec, typename Texp>
+inline void v_mul_expand(const Tvec& a, const Tvec& b, Texp& c, Texp& d)
 {
-    c.val = vec_mul(vec_unpackhu(a.val), vec_unpackhu(b.val));
-    d.val = vec_mul(vec_unpacklu(a.val), vec_unpacklu(b.val));
+    Texp p0 = Texp(vec_mule(a.val, b.val));
+    Texp p1 = Texp(vec_mulo(a.val, b.val));
+    v_zip(p0, p1, c, d);
 }
+
 inline void v_mul_expand(const v_uint32x4& a, const v_uint32x4& b, v_uint64x2& c, v_uint64x2& d)
 {
     c.val = vec_mul(vec_unpackhu(a.val), vec_unpackhu(b.val));
@@ -459,17 +470,17 @@ inline void v_mul_expand(const v_uint32x4& a, const v_uint32x4& b, v_uint64x2& c
 
 inline v_int16x8 v_mul_hi(const v_int16x8& a, const v_int16x8& b)
 {
-    return v_int16x8(vec_packs(
-                               vec_sra(vec_mul(vec_unpackh(a.val), vec_unpackh(b.val)), vec_uint4_sp(16)),
-                               vec_sra(vec_mul(vec_unpackl(a.val), vec_unpackl(b.val)), vec_uint4_sp(16))
-                              ));
+    vec_int4 p0 = vec_mule(a.val, b.val);
+    vec_int4 p1 = vec_mulo(a.val, b.val);
+    static const vec_uchar16 perm = {2, 3, 18, 19, 6, 7, 22, 23, 10, 11, 26, 27, 14, 15, 30, 31};
+    return v_int16x8(vec_perm(vec_short8_c(p0), vec_short8_c(p1), perm));
 }
 inline v_uint16x8 v_mul_hi(const v_uint16x8& a, const v_uint16x8& b)
 {
-    return v_uint16x8(vec_packs(
-                                vec_sr(vec_mul(vec_unpackhu(a.val), vec_unpackhu(b.val)), vec_uint4_sp(16)),
-                                vec_sr(vec_mul(vec_unpacklu(a.val), vec_unpacklu(b.val)), vec_uint4_sp(16))
-                               ));
+    vec_uint4 p0 = vec_mule(a.val, b.val);
+    vec_uint4 p1 = vec_mulo(a.val, b.val);
+    static const vec_uchar16 perm = {2, 3, 18, 19, 6, 7, 22, 23, 10, 11, 26, 27, 14, 15, 30, 31};
+    return v_uint16x8(vec_perm(vec_ushort8_c(p0), vec_ushort8_c(p1), perm));
 }
 
 /** Non-saturating arithmetics **/
@@ -480,6 +491,7 @@ inline _Tpvec func(const _Tpvec& a, const _Tpvec& b)  \
 
 OPENCV_HAL_IMPL_VSX_BIN_FUNC(v_add_wrap, vec_add)
 OPENCV_HAL_IMPL_VSX_BIN_FUNC(v_sub_wrap, vec_sub)
+OPENCV_HAL_IMPL_VSX_BIN_FUNC(v_mul_wrap, vec_mul)
 
 /** Bitwise shifts **/
 #define OPENCV_HAL_IMPL_VSX_SHIFT_OP(_Tpvec, shr, splfunc)   \
