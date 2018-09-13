@@ -695,41 +695,6 @@ inline v_int16x16 operator * (const v_int16x16& a, const v_int16x16& b)
     return v_int16x16(_mm256_packs_epi32(p0, p1));
 }
 
-inline void v_mul_expand(const v_int16x16& a, const v_int16x16& b,
-                         v_int32x8& c, v_int32x8& d)
-{
-    v_int16x16 vhi = v_int16x16(_mm256_mulhi_epi16(a.val, b.val));
-
-    v_int16x16 v0, v1;
-    v_zip(a * b, vhi, v0, v1);
-
-    c = v_reinterpret_as_s32(v0);
-    d = v_reinterpret_as_s32(v1);
-}
-
-inline void v_mul_expand(const v_uint16x16& a, const v_uint16x16& b,
-                         v_uint32x8& c, v_uint32x8& d)
-{
-    v_uint16x16 vhi = v_uint16x16(_mm256_mulhi_epu16(a.val, b.val));
-
-    v_uint16x16 v0, v1;
-    v_zip(a * b, vhi, v0, v1);
-
-    c = v_reinterpret_as_u32(v0);
-    d = v_reinterpret_as_u32(v1);
-}
-
-inline void v_mul_expand(const v_uint32x8& a, const v_uint32x8& b,
-                         v_uint64x4& c, v_uint64x4& d)
-{
-    __m256i v0 = _mm256_mul_epu32(a.val, b.val);
-    __m256i v1 = _mm256_mul_epu32(_mm256_srli_epi64(a.val, 32), _mm256_srli_epi64(b.val, 32));
-    v_zip(v_uint64x4(v0), v_uint64x4(v1), c, d);
-}
-
-inline v_int16x16 v_mul_hi(const v_int16x16& a, const v_int16x16& b) { return v_int16x16(_mm256_mulhi_epi16(a.val, b.val)); }
-inline v_uint16x16 v_mul_hi(const v_uint16x16& a, const v_uint16x16& b) { return v_uint16x16(_mm256_mulhi_epu16(a.val, b.val)); }
-
 /** Non-saturating arithmetics **/
 #define OPENCV_HAL_IMPL_AVX_BIN_FUNC(func, _Tpvec, intrin) \
     inline _Tpvec func(const _Tpvec& a, const _Tpvec& b)   \
@@ -760,6 +725,41 @@ inline v_int8x32 v_mul_wrap(const v_int8x32& a, const v_int8x32& b)
 {
     return v_reinterpret_as_s8(v_mul_wrap(v_reinterpret_as_u8(a), v_reinterpret_as_u8(b)));
 }
+
+inline void v_mul_expand(const v_int16x16& a, const v_int16x16& b,
+                         v_int32x8& c, v_int32x8& d)
+{
+    v_int16x16 vhi = v_int16x16(_mm256_mulhi_epi16(a.val, b.val));
+
+    v_int16x16 v0, v1;
+    v_zip(v_mul_wrap(a, b), vhi, v0, v1);
+
+    c = v_reinterpret_as_s32(v0);
+    d = v_reinterpret_as_s32(v1);
+}
+
+inline void v_mul_expand(const v_uint16x16& a, const v_uint16x16& b,
+                         v_uint32x8& c, v_uint32x8& d)
+{
+    v_uint16x16 vhi = v_uint16x16(_mm256_mulhi_epu16(a.val, b.val));
+
+    v_uint16x16 v0, v1;
+    v_zip(v_mul_wrap(a, b), vhi, v0, v1);
+
+    c = v_reinterpret_as_u32(v0);
+    d = v_reinterpret_as_u32(v1);
+}
+
+inline void v_mul_expand(const v_uint32x8& a, const v_uint32x8& b,
+                         v_uint64x4& c, v_uint64x4& d)
+{
+    __m256i v0 = _mm256_mul_epu32(a.val, b.val);
+    __m256i v1 = _mm256_mul_epu32(_mm256_srli_epi64(a.val, 32), _mm256_srli_epi64(b.val, 32));
+    v_zip(v_uint64x4(v0), v_uint64x4(v1), c, d);
+}
+
+inline v_int16x16 v_mul_hi(const v_int16x16& a, const v_int16x16& b) { return v_int16x16(_mm256_mulhi_epi16(a.val, b.val)); }
+inline v_uint16x16 v_mul_hi(const v_uint16x16& a, const v_uint16x16& b) { return v_uint16x16(_mm256_mulhi_epu16(a.val, b.val)); }
 
 /** Bitwise shifts **/
 #define OPENCV_HAL_IMPL_AVX_SHIFT_OP(_Tpuvec, _Tpsvec, suffix, srai)  \
