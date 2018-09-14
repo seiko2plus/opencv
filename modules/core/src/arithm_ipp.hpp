@@ -379,6 +379,18 @@ inline int arithm_ipp_mul32f(const float *src1, size_t step1, const float *src2,
 #define arithm_ipp_addWeighted32f(...) 0
 #define arithm_ipp_addWeighted64f(...) 0
 
+//=======================================
+// Reciprocial
+//=======================================
+
+#define arithm_ipp_recip8u(...)  0
+#define arithm_ipp_recip8s(...)  0
+#define arithm_ipp_recip16u(...) 0
+#define arithm_ipp_recip16s(...) 0
+#define arithm_ipp_recip32s(...) 0
+#define arithm_ipp_recip32f(...) 0
+#define arithm_ipp_recip64f(...) 0
+
 /** empty block in case if you have "fun"
 #define arithm_ipp_8u(...)  0
 #define arithm_ipp_8s(...)  0
