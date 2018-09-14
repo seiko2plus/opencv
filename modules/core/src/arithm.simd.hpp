@@ -1121,6 +1121,14 @@ struct op_mul
     static inline Tvec r(const Tvec& a, const Tvec& b)
     { return a * b; }
     static inline T1 r(T1 a, T1 b)
+    { return a * b; }
+};
+template<typename T1, typename Tvec>
+struct op_muls
+{
+    static inline Tvec r(const Tvec& a, const Tvec& b)
+    { return a * b; }
+    static inline T1 r(T1 a, T1 b)
     { return saturate_cast<T1>(a * b); }
 };
 
@@ -1177,27 +1185,30 @@ void mul_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
               T1* dst, size_t step, int width, int height, const double* scalar)
 {
     float fscalar = (float)*scalar;
-    /*
-    if (fscalar == 1.0f)
+    if (std::fabs(fscalar - 1.0f) <= FLT_EPSILON)
     {
-        bin_loop<op_mul, T1, Tvec>(src1, step1, src2, step2, dst, step, width, height);
-        return;
-    }*/
-    scalar_loop<op_mul_scale, T1, float, Tvec>(src1, step1, src2, step2,
-        dst, step, width, height, &fscalar);
+        bin_loop<op_muls, T1, Tvec>(src1, step1, src2, step2, dst, step, width, height);
+    }
+    else
+    {
+        scalar_loop<op_mul_scale, T1, float, Tvec>(src1, step1, src2, step2,
+            dst, step, width, height, &fscalar);
+    }
 }
 
 template<typename T1, typename Tvec>
 void mul_loop_d(const T1* src1, size_t step1, const T1* src2, size_t step2,
                 T1* dst, size_t step, int width, int height, const double* scalar)
 {
-    if (std::fabs((*scalar) - 1.0) <= FLT_EPSILON)
+    if (std::fabs(*scalar - 1.0) <= FLT_EPSILON)
     {
-        mul_loop<T1, Tvec>(src1, step1, src2, step2, dst, step, width, height, scalar);
-        return;
+        bin_loop<op_mul, T1, Tvec>(src1, step1, src2, step2, dst, step, width, height);
     }
-    SCALAR_LOOP64F<op_mul_scale, T1, double, Tvec>(src1, step1, src2, step2,
-        dst, step, width, height, scalar);
+    else
+    {
+        SCALAR_LOOP64F<op_mul_scale, T1, double, Tvec>(src1, step1, src2, step2,
+            dst, step, width, height, scalar);
+    }
 }
 
 template<>
@@ -1207,10 +1218,12 @@ void mul_loop_d<double, v_float64>(const double* src1, size_t step1, const doubl
     if (*scalar == 1.0)
     {
         BIN_LOOP64F<op_mul, double, v_float64>(src1, step1, src2, step2, dst, step, width, height);
-        return;
     }
-    SCALAR_LOOP64F<op_mul_scale, double, double, v_float64>(src1, step1, src2, step2,
-        dst, step, width, height, scalar);
+    else
+    {
+        SCALAR_LOOP64F<op_mul_scale, double, double, v_float64>(src1, step1, src2, step2,
+            dst, step, width, height, scalar);
+    }
 }
 
 #endif // ARITHM_DEFINITIONS_ONLY
@@ -1334,11 +1347,14 @@ template<typename T1, typename Tvec>
 void div_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
               T1* dst, size_t step, int width, int height, const double* scalar)
 {
-    /*if (*scalar == 1.0)
+    /*
+    todo: add new intrinsics for integer divide
+    if (*scalar == 1.0)
     {
         bin_loop<op_div, T1, Tvec>(src1, step1, src2, step2, dst, step, width, height);
         return;
-    }*/
+    }
+    */
     float fscalar = (float)*scalar;
     scalar_loop<op_div_scale, T1, float, Tvec>(src1, step1, src2, step2,
         dst, step, width, height, &fscalar);
@@ -1497,14 +1513,6 @@ template<typename T1, typename Tvec>
 void add_weighted_loop_d(const T1* src1, size_t step1, const T1* src2, size_t step2,
                          T1* dst, size_t step, int width, int height, const double* scalars)
 {
-    bool alpha_flt = std::fabs(scalars[0] - 1) <= FLT_EPSILON;
-    bool beta_flt = std::fabs(scalars[1] - 1) <= FLT_EPSILON;
-
-    if (alpha_flt && beta_flt)
-    {
-        add_weighted_loop<T1, Tvec>(src1, step1, src2, step2, dst, step, width, height, scalars);
-        return;
-    }
     if (scalars[1] == 1.0 && scalars[2] == 0)
     {
         SCALAR_LOOP64F<op_add_scale, T1, double, Tvec>(src1, step1, src2, step2,
@@ -1526,8 +1534,10 @@ void add_weighted_loop_d<double, v_float64>(const double* src1, size_t step1, co
             dst, step, width, height, scalars);
     }
     else
+    {
         SCALAR_LOOP64F<op_add_weighted, double, double, v_float64>(src1, step1, src2, step2,
             dst, step, width, height, scalars);
+    }
 }
 
 #endif // ARITHM_DEFINITIONS_ONLY
