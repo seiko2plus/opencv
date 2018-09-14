@@ -792,9 +792,12 @@ static void cmp_loop_nosimd(const double* src1, size_t step1, const double* src2
 DEFINE_SIMD_ALL(cmp)
 
 //=========================================================================
-// Dual source scaling helpers
+// scaling helpers for single and dual source
 //
-// Multiply, Div, AddWeighted
+// Dual: Multiply, Div, AddWeighted
+//
+// Single: Reciprocial
+//
 //=========================================================================
 
 #ifdef ARITHM_DEFINITIONS_ONLY
@@ -807,6 +810,8 @@ template<int nload, template<typename T1, typename T2, typename Tvec> class OP, 
 struct scalar_loader_n
 {
     void l(const T1* src1, const T1* src2, const T2* scalar, T1* dst);
+    // single source
+    void l(const T1* src1, const T2* scalar, T1* dst);
 };
 
 template<template<typename T1, typename T2, typename Tvec> class OP, typename T1, typename T2, typename Tvec>
@@ -829,6 +834,19 @@ struct scalar_loader_n<sizeof(uchar), OP, T1, T2, Tvec>
         v_int32 r1 = op::r(v_reinterpret_as_s32(t1), v_reinterpret_as_s32(t3), scalar);
 
         store(dst, v_src2, r0, r1);
+    }
+
+    static inline void l(const T1* src1, const T2* scalar, T1* dst)
+    {
+        Twvec v_src1 = vx_load_expand(src1);
+
+        Tqvec t0, t1;
+        v_expand(v_src1, t0, t1);
+
+        v_int32 r0 = op::r(v_reinterpret_as_s32(t0), scalar);
+        v_int32 r1 = op::r(v_reinterpret_as_s32(t1), scalar);
+
+        store(dst, v_src1, r0, r1);
     }
 
     static inline void store(uchar* dst, const Twvec& src, const v_int32& a, const v_int32& b)
@@ -862,6 +880,19 @@ struct scalar_loader_n<sizeof(ushort), OP, T1, T2, Tvec>
         store(dst, v_src2, r0, r1);
     }
 
+    static inline void l(const T1* src1, const T2* scalar, T1* dst)
+    {
+        Tvec v_src1 = vx_load(src1);
+
+        Twvec t0, t1;
+        v_expand(v_src1, t0, t1);
+
+        v_int32 r0 = op::r(v_reinterpret_as_s32(t0), scalar);
+        v_int32 r1 = op::r(v_reinterpret_as_s32(t1), scalar);
+
+        store(dst, v_src1, r0, r1);
+    }
+
     static inline void store(ushort* dst, const Tvec& src, const v_int32& a, const v_int32& b)
     {
         v_store(dst, op::pre(src, v_pack_u(a, b)));
@@ -893,6 +924,20 @@ struct scalar_loader_n<sizeof(int), OP, int, T2, v_int32>
         v_store(dst, r0);
         v_store(dst + step, r1);
     }
+
+    static inline void l(const int* src1, const T2* scalar, int* dst)
+    {
+        v_int32 v_src1 = vx_load(src1);
+        v_int32 r0 = op::r(v_src1, scalar);
+                r0 = op::pre(v_src1, r0);
+
+        v_src1 = vx_load(src1 + step);
+        v_int32 r1 = op::r(v_src1, scalar);
+                r1 = op::pre(v_src1, r1);
+
+        v_store(dst, r0);
+        v_store(dst + step, r1);
+    }
 };
 
 template<template<typename T1, typename T2, typename Tvec> class OP, typename T2>
@@ -916,6 +961,21 @@ struct scalar_loader_n<sizeof(float), OP, float, T2, v_float32>
 
         v_store(dst, f0);
         v_store(dst + step, f2);
+    }
+
+    static inline void l(const float* src1, const T2* scalar, float* dst)
+    {
+        v_float32 f0 = vx_load(src1);
+        v_float32 f1 = vx_load(src1 + step);
+
+        f0 = op::r(f0, scalar);
+        f0 = op::pre(f0, f0);
+
+        f1 = op::r(f1, scalar);
+        f1 = op::pre(f1, f1);
+
+        v_store(dst, f0);
+        v_store(dst + step, f1);
     }
 };
 #endif // CV_SIMD
@@ -943,6 +1003,19 @@ struct scalar_loader_n<sizeof(int), OP, int, double, v_int32>
         v_store(dst, r0);
         v_store(dst + step, r1);
     }
+    static inline void l(const int* src1, const double* scalar, int* dst)
+    {
+        v_int32 v_src1 = vx_load(src1);
+        v_int32 r0 = r(v_src1, scalar);
+                r0 = op::pre(v_src1, r0);
+
+        v_src1 = vx_load(src1 + step);
+        v_int32 r1 = r(v_src1, scalar);
+                r1 = op::pre(v_src1, r1);
+
+        v_store(dst, r0);
+        v_store(dst + step, r1);
+    }
 
     static inline v_int32 r(const v_int32& a, const v_int32& b, const double* scalar)
     {
@@ -954,6 +1027,17 @@ struct scalar_loader_n<sizeof(int), OP, int, double, v_int32>
 
         v_float64 r0 = op64::r(f0, f2, scalar);
         v_float64 r1 = op64::r(f1, f3, scalar);
+
+        return v_round(r0, r1);
+    }
+    static inline v_int32 r(const v_int32& a, const double* scalar)
+    {
+        v_float64 f0, f1;
+        f0 = v_cvt_f64(a);
+        f1 = v_cvt_f64_high(a);
+
+        v_float64 r0 = op64::r(f0, scalar);
+        v_float64 r1 = op64::r(f1, scalar);
 
         return v_round(r0, r1);
     }
@@ -982,6 +1066,21 @@ struct scalar_loader_n<sizeof(float), OP, float, double, v_float32>
         v_store(dst, f0);
         v_store(dst + step, f2);
     }
+    static inline void l(const float* src1, const double* scalar, float* dst)
+    {
+        v_float32 f0 = vx_load(src1);
+        v_float32 f1 = vx_load(src1 + step);
+
+        f0 = r(f0, scalar);
+        f0 = op::pre(f0, f0);
+
+        f1 = r(f1, scalar);
+        f1 = op::pre(f1, f1);
+
+        v_store(dst, f0);
+        v_store(dst + step, f1);
+    }
+
     static inline v_float32 r(const v_float32& a, const v_float32& b, const double* scalar)
     {
         v_float64 f0, f1, f2, f3;
@@ -992,6 +1091,17 @@ struct scalar_loader_n<sizeof(float), OP, float, double, v_float32>
 
         v_float64 r0 = op64::r(f0, f2, scalar);
         v_float64 r1 = op64::r(f1, f3, scalar);
+
+        return v_cvt_f32(r0, r1);
+    }
+    static inline v_float32 r(const v_float32& a, const double* scalar)
+    {
+        v_float64 f0, f1;
+        f0 = v_cvt_f64(a);
+        f1 = v_cvt_f64_high(a);
+
+        v_float64 r0 = op64::r(f0, scalar);
+        v_float64 r1 = op64::r(f1, scalar);
 
         return v_cvt_f32(r0, r1);
     }
@@ -1019,11 +1129,26 @@ struct scalar_loader_n<sizeof(double), OP, double, double, v_float64>
         v_store(dst, f0);
         v_store(dst + step, f2);
     }
+    static inline void l(const double* src1, const double* scalar, double* dst)
+    {
+        v_float64 f0 = vx_load(src1);
+        v_float64 f1 = vx_load(src1 + step);
+
+        f0 = op::r(f0, scalar);
+        f0 = op::pre(f0, f0);
+
+        f1 = op::r(f1, scalar);
+        f1 = op::pre(f1, f1);
+
+        v_store(dst, f0);
+        v_store(dst + step, f1);
+    }
 };
 #endif // CV_SIMD_64F
 
 //////////////////////////// Loops /////////////////////////////////
 
+// dual source
 template<template<typename T1, typename T2, typename Tvec> class OP, typename T1, typename T2, typename Tvec>
 void scalar_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
                  T1* dst, size_t step, int width, int height, const T2* scalar)
@@ -1070,7 +1195,53 @@ void scalar_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
     vx_cleanup();
 }
 
+// single source
+template<template<typename T1, typename T2, typename Tvec> class OP, typename T1, typename T2, typename Tvec>
+void scalar_loop(const T1* src1, size_t step1, T1* dst, size_t step, int width, int height, const T2* scalar)
+{
+    typedef OP<T1, T2, Tvec> op;
+#if CV_SIMD
+    typedef scalar_loader_n<sizeof(T1), OP, T1, T2, Tvec> ldr;
+    const int wide_step = sizeof(T1) > sizeof(ushort) ? Tvec::nlanes * 2 :
+                          sizeof(T1) == sizeof(uchar) ? Tvec::nlanes / 2 : Tvec::nlanes;
+#endif // CV_SIMD
+
+    step1 /= sizeof(T1);
+    step  /= sizeof(T1);
+
+    for (; height--; src1 += step1, dst += step)
+    {
+        int x = 0;
+
+    #if CV_SIMD
+        for (; x <= width - wide_step; x += wide_step)
+        {
+            ldr::l(src1 + x, scalar, dst + x);
+        }
+    #endif // CV_SIMD
+
+    #if CV_ENABLE_UNROLLED || CV_SIMD_WIDTH > 16
+        for (; x <= width - 4; x += 4)
+        {
+            T1 t0 = op::r(src1[x], scalar);
+            T1 t1 = op::r(src1[x + 1], scalar);
+            dst[x] = t0; dst[x + 1] = t1;
+
+            t0 = op::r(src1[x + 2], scalar);
+            t1 = op::r(src1[x + 3], scalar);
+            dst[x + 2] = t0; dst[x + 3] = t1;
+        }
+    #endif
+
+        for (; x < width; ++x)
+            dst[x] = op::r(src1[x], scalar);
+    }
+
+    vx_cleanup();
+}
+
 #if !CV_SIMD_64F
+// dual source
 template<template<typename T1, typename T2, typename Tvec> class OP, typename T1, typename T2, typename Tvec>
 void scalar_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t step2,
                  T1* dst, size_t step, int width, int height, const T2* scalar)
@@ -1100,6 +1271,36 @@ void scalar_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t ste
             dst[x] = op::r(src1[x], src2[x], scalar);
     }
 }
+
+// single source
+template<template<typename T1, typename T2, typename Tvec> class OP, typename T1, typename T2, typename Tvec>
+void scalar_loop_nosimd(const T1* src1, size_t step1, T1* dst, size_t step, int width, int height, const T2* scalar)
+{
+    typedef OP<T1, T2, Tvec> op;
+
+    step1 /= sizeof(T1);
+    step  /= sizeof(T1);
+
+    for (; height--; src1 += step1, dst += step)
+    {
+        int x = 0;
+
+        for (; x <= width - 4; x += 4)
+        {
+            T1 t0 = op::r(src1[x], scalar);
+            T1 t1 = op::r(src1[x + 1], scalar);
+            dst[x] = t0; dst[x + 1] = t1;
+
+            t0 = op::r(src1[x + 2], scalar);
+            t1 = op::r(src1[x + 3], scalar);
+            dst[x + 2] = t0; dst[x + 3] = t1;
+        }
+
+        for (; x < width; ++x)
+            dst[x] = op::r(src1[x], scalar);
+    }
+}
+
 #define SCALAR_LOOP64F scalar_loop_nosimd
 #else
 #define SCALAR_LOOP64F scalar_loop
@@ -1230,11 +1431,12 @@ void mul_loop_d<double, v_float64>(const double* src1, size_t step1, const doubl
 
 //////////////////////////////////////////////////////////////////////////
 
-#ifndef SIMD_GUARD
+#undef SCALAR_ARGS
 #define SCALAR_ARGS(_T1) const _T1* src1, size_t step1, const _T1* src2, size_t step2, \
                           _T1* dst, size_t step, int width, int height
+
+#undef SCALAR_ARGS_PASS
 #define SCALAR_ARGS_PASS src1, step1, src2, step2, dst, step, width, height
-#endif // SIMD_GUARD
 
 #undef DECLARE_SIMD_FUN
 #define DECLARE_SIMD_FUN(fun, _T1) void fun(SCALAR_ARGS(_T1), const double* scalar);
@@ -1561,6 +1763,108 @@ DEFINE_SIMD_SAT(addWeighted, add_weighted_loop)
 DEFINE_SIMD_S32(addWeighted, add_weighted_loop_d)
 DEFINE_SIMD_F32(addWeighted, add_weighted_loop_d)
 DEFINE_SIMD_F64(addWeighted, add_weighted_loop_d)
+
+//=======================================
+// Reciprocial
+//=======================================
+
+#ifdef ARITHM_DEFINITIONS_ONLY
+
+///////////////////////////// Operations //////////////////////////////////
+
+template<typename T1, typename T2, typename Tvec>
+struct op_recip
+{
+    static inline v_int32 r(const v_int32& a, const T2* scalar)
+    {
+        const v_float32 v_scalar = vx_setall_f32(*scalar);
+        v_float32 f0 = v_cvt_f32(a);
+        return v_round(v_scalar / f0);
+    }
+    static inline Tvec pre(const Tvec& denom, const Tvec& res)
+    {
+        const Tvec v_zero = Tvec();
+        return v_select(denom == v_zero, v_zero, res);
+    }
+    static inline T1 r(T1 denom, const T2* scalar)
+    { return denom != 0 ? saturate_cast<T1>((*scalar) / denom) : (T1)0; }
+};
+
+template<>
+struct op_recip<float, float, v_float32>
+{
+    static inline v_float32 r(const v_float32& a, const float* scalar)
+    {
+        const v_float32 v_scalar = vx_setall_f32(*scalar);
+        return v_scalar / a;
+    }
+    static inline v_float32 pre(const v_float32& denom, const v_float32& res)
+    {
+        const v_float32 v_zero = vx_setzero_f32();
+        return v_select(denom == v_zero, v_zero, res);
+    }
+    static inline float r(float denom, const float* scalar)
+    { return denom != 0 ? (*scalar) / denom : 0.0f; }
+};
+
+template<>
+struct op_recip<double, double, v_float64>
+{
+#if CV_SIMD_64F
+    static inline v_float64 r(const v_float64& a, const double* scalar)
+    {
+        const v_float64 v_scalar = vx_setall_f64(*scalar);
+        return v_scalar / a;
+    }
+    static inline v_float64 pre(const v_float64& denom, const v_float64& res)
+    {
+        const v_float64 v_zero = vx_setzero_f64();
+        return v_select(denom == v_zero, v_zero, res);
+    }
+#endif
+    static inline double r(double denom, const double* scalar)
+    { return denom != 0 ? (*scalar) / denom : 0.0; }
+};
+
+//////////////////////////// Loops /////////////////////////////////
+
+template<typename T1, typename Tvec>
+void recip_loop(const T1* src1, size_t step1, T1* dst, size_t step, int width, int height, const double* scalar)
+{
+    float fscalar = (float)*scalar;
+    scalar_loop<op_recip, T1, float, Tvec>(src1, step1, dst, step, width, height, &fscalar);
+}
+
+template<>
+void recip_loop<double, v_float64>(const double* src1, size_t step1, double* dst, size_t step, int width, int height, const double* scalar)
+{
+    SCALAR_LOOP64F<op_recip, double, double, v_float64>(src1, step1, dst, step, width, height, scalar);
+}
+
+#endif // ARITHM_DEFINITIONS_ONLY
+
+//////////////////////////////////////////////////////////////////////////
+
+#undef SCALAR_ARGS
+#define SCALAR_ARGS(_T1) const _T1* src1, size_t step1, _T1* dst, size_t step, int width, int height
+
+#undef SCALAR_ARGS_PASS
+#define SCALAR_ARGS_PASS src1, step1, dst, step, width, height
+
+#undef DISPATCH_SIMD_FUN
+#define DISPATCH_SIMD_FUN(fun, _T1, _Tvec, ...)                          \
+    void fun(const _T1*, size_t, SCALAR_ARGS(_T1), void* scalar)         \
+    {                                                                    \
+        CV_INSTRUMENT_REGION();                                          \
+        CALL_HAL(fun, __CV_CAT(cv_hal_, fun),                            \
+            SCALAR_ARGS_PASS, *(const double*)scalar)                    \
+        ARITHM_CALL_IPP(__CV_CAT(arithm_ipp_, fun),                      \
+            SCALAR_ARGS_PASS, *(const double*)scalar)                    \
+        CV_CPU_DISPATCH(fun, (SCALAR_ARGS_PASS, (const double*)scalar),  \
+            CV_CPU_DISPATCH_MODES_ALL);                                  \
+    }
+
+DEFINE_SIMD_ALL(recip, recip_loop)
 
 #ifndef ARITHM_DISPATCHING_ONLY
     CV_CPU_OPTIMIZATION_NAMESPACE_END
