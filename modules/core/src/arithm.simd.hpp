@@ -109,6 +109,108 @@ typedef int v_float64; // dummy
 #endif
 
 //=======================================
+// Utility
+//=======================================
+
+/** add **/
+template<typename T>
+static inline T c_add(T a, T b)
+{ return saturate_cast<T>(a + b); }
+template<>
+inline uchar c_add<uchar>(uchar a, uchar b)
+{ return CV_FAST_CAST_8U(a + b); }
+// scale
+template<typename T1, typename T2>
+static inline T1 c_add(T1 a, T1 b, T2 scalar)
+{ return saturate_cast<T1>((T2)a * scalar + b); }
+template<>
+inline uchar c_add<uchar, float>(uchar a, uchar b, float scalar)
+{ return saturate_cast<uchar>(CV_8TO32F(a) * scalar + b); }
+// weight
+template<typename T1, typename T2>
+static inline T1 c_add(T1 a, T1 b, T2 alpha, T2 beta, T2 gamma)
+{ return saturate_cast<T1>(a * alpha + b * beta + gamma); }
+template<>
+inline uchar c_add<uchar, float>(uchar a, uchar b, float alpha, float beta, float gamma)
+{ return saturate_cast<uchar>(CV_8TO32F(a) * alpha + CV_8TO32F(b) * beta + gamma); }
+
+/** sub **/
+template<typename T>
+static inline T c_sub(T a, T b)
+{ return saturate_cast<T>(a - b); }
+template<>
+inline uchar c_sub<uchar>(uchar a, uchar b)
+{ return CV_FAST_CAST_8U(a - b); }
+
+/** max **/
+template<typename T>
+static inline T c_max(T a, T b)
+{ return std::max(a, b); }
+template<>
+inline uchar c_max<uchar>(uchar a, uchar b)
+{ return CV_MAX_8U(a, b); }
+
+/** min **/
+template<typename T>
+static inline T c_min(T a, T b)
+{ return std::min(a, b); }
+template<>
+inline uchar c_min<uchar>(uchar a, uchar b)
+{ return CV_MIN_8U(a, b); }
+
+/** absdiff **/
+template<typename T>
+static inline T c_absdiff(T a, T b)
+{ return a > b ? a - b : b - a; }
+template<>
+inline schar c_absdiff(schar a, schar b)
+{ return saturate_cast<schar>(std::abs(a - b)); }
+template<>
+inline short c_absdiff(short a, short b)
+{ return saturate_cast<short>(std::abs(a - b)); }
+// specializations to prevent "-0" results
+template<>
+inline float c_absdiff<float>(float a, float b)
+{ return std::abs(a - b); }
+template<>
+inline double c_absdiff<double>(double a, double b)
+{ return std::abs(a - b); }
+
+/** multiply **/
+template<typename T>
+static inline T c_mul(T a, T b)
+{ return saturate_cast<T>(a * b); }
+template<>
+inline uchar c_mul<uchar>(uchar a, uchar b)
+{ return CV_FAST_CAST_8U(a * b); }
+// scale
+template<typename T1, typename T2>
+static inline T1 c_mul(T1 a, T1 b, T2 scalar)
+{ return saturate_cast<T1>(scalar * (T2)a * b); }
+template<>
+inline uchar c_mul<uchar, float>(uchar a, uchar b, float scalar)
+{ return saturate_cast<uchar>(scalar * CV_8TO32F(a) * CV_8TO32F(b)); }
+
+/** divide & reciprocal **/
+template<typename T1, typename T2>
+static inline T2 c_div(T1 a, T2 b)
+{ return saturate_cast<T2>(a / b); }
+template<>
+inline uchar c_div<uchar, uchar>(uchar a, uchar b)
+{ return CV_FAST_CAST_8U(a / b); }
+// recip
+template<>
+inline uchar c_div<float, uchar>(float a, uchar b)
+{ return saturate_cast<uchar>(a / CV_8TO32F(b)); }
+// scale
+template<typename T1, typename T2>
+static inline T1 c_div(T1 a, T1 b, T2 scalar)
+{ return saturate_cast<T1>(scalar * (T2)a / b); }
+template<>
+inline uchar c_div<uchar, float>(uchar a, uchar b, float scalar)
+{ return saturate_cast<uchar>(scalar * CV_8TO32F(a) / CV_8TO32F(b)); }
+
+//=======================================
 // Arithmetic and logical operations
 // +, -, *, /, &, |, ^, ~, abs ...
 //=======================================
@@ -122,17 +224,8 @@ struct op_add
     static inline Tvec r(const Tvec& a, const Tvec& b)
     { return a + b; }
     static inline T1 r(T1 a, T1 b)
-    { return a + b; }
+    { return c_add(a, b); }
 };
-template<typename T1, typename Tvec>
-struct op_adds
-{
-    static inline Tvec r(const Tvec& a, const Tvec& b)
-    { return a + b; }
-    static inline T1 r(T1 a, T1 b)
-    { return saturate_cast<T1>(a + b); }
-};
-
 
 // Subtract
 template<typename T1, typename Tvec>
@@ -141,17 +234,8 @@ struct op_sub
     static inline Tvec r(const Tvec& a, const Tvec& b)
     { return a - b; }
     static inline T1 r(T1 a, T1 b)
-    { return a - b; }
+    { return c_sub(a, b); }
 };
-template<typename T1, typename Tvec>
-struct op_subs
-{
-    static inline Tvec r(const Tvec& a, const Tvec& b)
-    { return a - b; }
-    static inline T1 r(T1 a, T1 b)
-    { return saturate_cast<T1>(a - b); }
-};
-
 
 // Max & Min
 template<typename T1, typename Tvec>
@@ -160,40 +244,43 @@ struct op_max
     static inline Tvec r(const Tvec& a, const Tvec& b)
     { return v_max(a, b); }
     static inline T1 r(T1 a, T1 b)
-    { return std::max(a, b); }
+    { return c_max(a, b); }
 };
+
 template<typename T1, typename Tvec>
 struct op_min
 {
     static inline Tvec r(const Tvec& a, const Tvec& b)
     { return v_min(a, b); }
     static inline T1 r(T1 a, T1 b)
-    { return std::min(a, b); }
+    { return c_min(a, b); }
 };
 
 // Absolute difference
 template<typename T1, typename Tvec>
 struct op_absdiff
 {
-    Tvec r(const Tvec& a, const Tvec& b);
-    T1 r(T1 a, T1 b);
-};
-// 'specializations to prevent "-0" results'
-template<typename Tvec>
-struct op_absdiff<float, Tvec>
-{
     static inline Tvec r(const Tvec& a, const Tvec& b)
     { return v_absdiff(a, b); }
-    static inline float r(float a, float b)
-    { return std::abs(a - b); }
+    static inline T1 r(T1 a, T1 b)
+    { return c_absdiff(a, b); }
 };
-template<typename Tvec>
-struct op_absdiff<double, Tvec>
+// Signed absolute difference, 's'
+template<>
+struct op_absdiff<schar, v_int8>
 {
-    static inline Tvec r(const Tvec& a, const Tvec& b)
-    { return v_absdiff(a, b); }
-    static inline double r(double a, double b)
-    { return std::abs(a - b); }
+    static inline v_int8 r(const v_int8& a, const v_int8& b)
+    { return v_absdiffs(a, b); }
+    static inline schar r(schar a, schar b)
+    { return c_absdiff(a, b); }
+};
+template<>
+struct op_absdiff<short, v_int16>
+{
+    static inline v_int16 r(const v_int16& a, const v_int16& b)
+    { return v_absdiffs(a, b); }
+    static inline short r(short a, short b)
+    { return c_absdiff(a, b); }
 };
 template<>
 struct op_absdiff<int, v_int32>
@@ -201,25 +288,8 @@ struct op_absdiff<int, v_int32>
     static inline v_int32 r(const v_int32& a, const v_int32& b)
     { return v_reinterpret_as_s32(v_absdiff(a, b)); }
     static inline int r(int a, int b)
-    { return a > b ? a - b : b - a; }
+    { return c_absdiff(a, b); }
 };
-template<typename T1, typename Tvec>
-struct op_absdiff_u
-{
-    static inline Tvec r(const Tvec& a, const Tvec& b)
-    { return v_absdiff(a, b); }
-    static inline T1 r(T1 a, T1 b)
-    { return saturate_cast<T1>(std::abs(a - b)); }
-};
-template<typename T1, typename Tvec>
-struct op_absdiff_s
-{
-    static inline Tvec r(const Tvec& a, const Tvec& b)
-    { return v_absdiffs(a, b); }
-    static inline T1 r(T1 a, T1 b)
-    { return saturate_cast<T1>(std::abs(a - b)); }
-};
-
 
 // Logical
 template<typename T1, typename Tvec>
@@ -319,17 +389,17 @@ template<typename T1, typename T2>
 static inline bool is_aligned(const T1* src1, const T1* src2, const T2* dst)
 { return (((size_t)src1|(size_t)src2|(size_t)dst) & (CV_SIMD_WIDTH - 1)) == 0; }
 
-template< template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
+template<template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
 static void bin_loop(const T1* src1, size_t step1, const T1* src2, size_t step2, T1* dst, size_t step, int width, int height)
 {
     typedef OP<T1, Tvec> op;
 #if CV_SIMD
     typedef bin_loader<OP, T1, Tvec> ldr;
-    const int wide_step = Tvec::nlanes;
+    enum {wide_step = Tvec::nlanes};
     #if !CV_NEON && CV_SIMD_WIDTH == 16
-        const int wide_step_l = wide_step * 2;
+        enum {wide_step_l = wide_step * 2};
     #else
-        const int wide_step_l = wide_step;
+        enum {wide_step_l = wide_step};
     #endif
 #endif // CV_SIMD
 
@@ -392,7 +462,7 @@ static void bin_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
 }
 
 #if !CV_SIMD_64F
-template< template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
+template<template<typename T1, typename Tvec> class OP, typename T1, typename Tvec>
 static void bin_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t step2, T1* dst, size_t step, int width, int height)
 {
     typedef OP<T1, Tvec/*dummy*/> op;
@@ -465,20 +535,13 @@ static void bin_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t
         bin_loop_nosimd<_OP, _T1, v_float64>(BIN_ARGS_PASS); \
     }
 
-DEFINE_SIMD_SAT(add, op_adds)
-DEFINE_SIMD_NSAT(add, op_add)
-
-DEFINE_SIMD_SAT(sub, op_subs)
-DEFINE_SIMD_NSAT(sub, op_sub)
+DEFINE_SIMD_ALL(add, op_add)
+DEFINE_SIMD_ALL(sub, op_sub)
 
 DEFINE_SIMD_ALL(min, op_min)
 DEFINE_SIMD_ALL(max, op_max)
 
-DEFINE_SIMD_U8(absdiff, op_absdiff_u)
-DEFINE_SIMD_S16(absdiff, op_absdiff_s)
-DEFINE_SIMD_U16(absdiff, op_absdiff_u)
-DEFINE_SIMD_S8(absdiff, op_absdiff_s)
-DEFINE_SIMD_NSAT(absdiff, op_absdiff)
+DEFINE_SIMD_ALL(absdiff, op_absdiff)
 
 DEFINE_SIMD_U8(or,  op_or)
 DEFINE_SIMD_U8(xor, op_xor)
@@ -637,7 +700,7 @@ static void cmp_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
     typedef OP<T1, Tvec> op;
 #if CV_SIMD
     typedef cmp_loader_n<sizeof(T1), OP, T1, Tvec> ldr;
-    const int wide_step = Tvec::nlanes * sizeof(T1);
+    enum {wide_step = Tvec::nlanes * sizeof(T1)};
 #endif // CV_SIMD
 
     step1 /= sizeof(T1);
@@ -806,7 +869,7 @@ DEFINE_SIMD_ALL(cmp)
 //
 // Dual: Multiply, Div, AddWeighted
 //
-// Single: Reciprocial
+// Single: Reciprocal
 //
 //=========================================================================
 
@@ -1330,14 +1393,6 @@ struct op_mul
     static inline Tvec r(const Tvec& a, const Tvec& b)
     { return a * b; }
     static inline T1 r(T1 a, T1 b)
-    { return a * b; }
-};
-template<typename T1, typename Tvec>
-struct op_muls
-{
-    static inline Tvec r(const Tvec& a, const Tvec& b)
-    { return a * b; }
-    static inline T1 r(T1 a, T1 b)
     { return saturate_cast<T1>(a * b); }
 };
 
@@ -1352,7 +1407,7 @@ struct op_mul_scale
         return v_round(v_scalar * f0 * f1);
     }
     static inline T1 r(T1 a, T1 b, const T2* scalar)
-    { return saturate_cast<T1>((*scalar) * (T2)a * b); }
+    { return c_mul(a, b, *scalar); }
     static inline Tvec pre(const Tvec&, const Tvec& res)
     { return res; }
 };
@@ -1366,7 +1421,7 @@ struct op_mul_scale<float, float, v_float32>
         return v_scalar * a * b;
     }
     static inline float r(float a, float b, const float* scalar)
-    { return (*scalar) * a * b; }
+    { return c_mul(a, b, *scalar); }
     static inline v_float32 pre(const v_float32&, const v_float32& res)
     { return res; }
 };
@@ -1382,7 +1437,7 @@ struct op_mul_scale<double, double, v_float64>
     }
 #endif
     static inline double r(double a, double b, const double* scalar)
-    { return (*scalar) * a * b; }
+    { return c_mul(a, b, *scalar); }
     static inline v_float64 pre(const v_float64&, const v_float64& res)
     { return res; }
 };
@@ -1396,7 +1451,7 @@ static void mul_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
     float fscalar = (float)*scalar;
     if (std::fabs(fscalar - 1.0f) <= FLT_EPSILON)
     {
-        bin_loop<op_muls, T1, Tvec>(src1, step1, src2, step2, dst, step, width, height);
+        bin_loop<op_mul, T1, Tvec>(src1, step1, src2, step2, dst, step, width, height);
     }
     else
     {
@@ -1493,7 +1548,7 @@ struct op_div
     static inline Tvec r(const Tvec& a, const Tvec& b)
     { return a / b; }
     static inline T1 r(T1 a, T1 b)
-    { return saturate_cast<T1>(a / b); }
+    { return c_div(a, b); }
 };
 
 template<typename T1, typename T2, typename Tvec>
@@ -1512,7 +1567,7 @@ struct op_div_scale
         return v_select(denom == v_zero, v_zero, res);
     }
     static inline T1 r(T1 a, T1 denom, const T2* scalar)
-    { return denom != 0 ? saturate_cast<T1>(a * (*scalar) / denom) : (T1)0; }
+    { return denom != 0 ? c_div(a, denom, *scalar) : 0; }
 };
 
 template<>
@@ -1529,7 +1584,7 @@ struct op_div_scale<float, float, v_float32>
         return v_select(denom == v_zero, v_zero, res);
     }
     static inline float r(float a, float denom, const float* scalar)
-    { return denom != 0 ? a * (*scalar) / denom : 0.0f; }
+    { return denom != 0.0f ? c_div(a, denom, *scalar) : 0.0f; }
 };
 
 template<>
@@ -1548,7 +1603,7 @@ struct op_div_scale<double, double, v_float64>
     }
 #endif
     static inline double r(double a, double denom, const double* scalar)
-    { return denom != 0 ? a * (*scalar) / denom : 0.0; }
+    { return denom != 0.0 ? c_div(a, denom, *scalar) : 0.0; }
 };
 
 //////////////////////////// Loops /////////////////////////////////
@@ -1627,7 +1682,7 @@ struct op_add_scale
         return v_round(v_fma(f0, v_alpha, f1));
     }
     static inline T1 r(T1 a, T1 b, const T2* scalar)
-    { return saturate_cast<T1>((T2)a * (*scalar) + b); }
+    { return c_add(a, b, *scalar); }
     static inline Tvec pre(const Tvec&, const Tvec& res)
     { return res; }
 };
@@ -1641,7 +1696,7 @@ struct op_add_scale<float, float, v_float32>
         return v_fma(a, v_alpha, b);
     }
     static inline float r(float a, float b, const float* scalar)
-    { return a * (*scalar) + b; }
+    { return c_add(a, b, *scalar); }
     static inline v_float32 pre(const v_float32&, const v_float32& res)
     { return res; }
 };
@@ -1657,7 +1712,7 @@ struct op_add_scale<double, double, v_float64>
     }
 #endif
     static inline double r(double a, double b, const double* scalar)
-    { return a * (*scalar) + b; }
+    { return c_add(a, b, *scalar); }
     static inline v_float64 pre(const v_float64&, const v_float64& res)
     { return res; }
 };
@@ -1676,7 +1731,7 @@ struct op_add_weighted
         return v_round(v_fma(f0, v_alpha, v_fma(f1, v_beta, v_gamma)));
     }
     static inline T1 r(T1 a, T1 b, const T2* scalars)
-    { return saturate_cast<T1>(a * scalars[0] + b * scalars[1] + scalars[2]); }
+    { return c_add(a, b, scalars[0], scalars[1], scalars[2]); }
     static inline Tvec pre(const Tvec&, const Tvec& res)
     { return res; }
 };
@@ -1692,7 +1747,7 @@ struct op_add_weighted<float, float, v_float32>
         return v_fma(a, v_alpha, v_fma(b, v_beta, v_gamma));
     }
     static inline float r(float a, float b, const float* scalars)
-    { return a * scalars[0] + b * scalars[1] + scalars[2]; }
+    { return c_add(a, b, scalars[0], scalars[1], scalars[2]); }
     static inline v_float32 pre(const v_float32&, const v_float32& res)
     { return res; }
 };
@@ -1710,7 +1765,7 @@ struct op_add_weighted<double, double, v_float64>
     }
 #endif
     static inline double r(double a, double b, const double* scalars)
-    { return a * scalars[0] + b * scalars[1] + scalars[2]; }
+    { return c_add(a, b, scalars[0], scalars[1], scalars[2]); }
     static inline v_float64 pre(const v_float64&, const v_float64& res)
     { return res; }
 };
@@ -1738,7 +1793,7 @@ template<typename T1, typename Tvec>
 static void add_weighted_loop_d(const T1* src1, size_t step1, const T1* src2, size_t step2,
                          T1* dst, size_t step, int width, int height, const double* scalars)
 {
-    if (scalars[1] == 1.0 && scalars[2] == 0)
+    if (scalars[1] == 1.0 && scalars[2] == 0.0)
     {
         SCALAR_LOOP64F<op_add_scale, T1, double, Tvec>(src1, step1, src2, step2,
             dst, step, width, height, scalars);
@@ -1754,7 +1809,7 @@ template<>
 void add_weighted_loop_d<double, v_float64>(const double* src1, size_t step1, const double* src2, size_t step2,
                                             double* dst, size_t step, int width, int height, const double* scalars)
 {
-    if (scalars[1] == 1.0 && scalars[2] == 0)
+    if (scalars[1] == 1.0 && scalars[2] == 0.0)
     {
         SCALAR_LOOP64F<op_add_scale, double, double, v_float64>(src1, step1, src2, step2,
             dst, step, width, height, scalars);
@@ -1789,7 +1844,7 @@ DEFINE_SIMD_F32(addWeighted, add_weighted_loop_d)
 DEFINE_SIMD_F64(addWeighted, add_weighted_loop_d)
 
 //=======================================
-// Reciprocial
+// Reciprocal
 //=======================================
 
 #ifdef ARITHM_DEFINITIONS_ONLY
@@ -1811,7 +1866,7 @@ struct op_recip
         return v_select(denom == v_zero, v_zero, res);
     }
     static inline T1 r(T1 denom, const T2* scalar)
-    { return denom != 0 ? saturate_cast<T1>((*scalar) / denom) : (T1)0; }
+    { return denom != 0 ? c_div(*scalar, denom) : 0; }
 };
 
 template<>
@@ -1828,7 +1883,7 @@ struct op_recip<float, float, v_float32>
         return v_select(denom == v_zero, v_zero, res);
     }
     static inline float r(float denom, const float* scalar)
-    { return denom != 0 ? (*scalar) / denom : 0.0f; }
+    { return denom != 0.0f ? c_div(*scalar, denom) : 0.0f; }
 };
 
 template<>
@@ -1847,7 +1902,7 @@ struct op_recip<double, double, v_float64>
     }
 #endif
     static inline double r(double denom, const double* scalar)
-    { return denom != 0 ? (*scalar) / denom : 0.0; }
+    { return denom != 0.0 ? c_div(*scalar, denom) : 0.0; }
 };
 
 //////////////////////////// Loops /////////////////////////////////
