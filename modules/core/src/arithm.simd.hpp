@@ -898,11 +898,20 @@ struct scalar_loader_n<sizeof(uchar), OP, T1, T2, Tvec>
         v_int16 v_src2 = v_reinterpret_as_s16(vx_load_expand(src2));
 
         v_int32 t0, t1, t2, t3;
-        v_expand(v_src1, t0, t1);
-        v_expand(v_src2, t2, t3);
+        v_expand(v_src1, t0, t2);
+        v_expand(v_src2, t1, t3);
 
-        v_int32 r0 = op::r(t0, t2, scalar);
-        v_int32 r1 = op::r(t1, t3, scalar);
+        v_float32 f0, f1, f2, f3;
+        f0 = v_cvt_f32(t0);
+        f1 = v_cvt_f32(t1);
+        f2 = v_cvt_f32(t2);
+        f3 = v_cvt_f32(t3);
+
+        f0 = op::r(f0, f1, scalar);
+        f2 = op::r(f2, f3, scalar);
+
+        v_int32 r0 = v_round(f0);
+        v_int32 r1 = v_round(f2);
 
         store(dst, v_src2, r0, r1);
     }
@@ -914,8 +923,15 @@ struct scalar_loader_n<sizeof(uchar), OP, T1, T2, Tvec>
         v_int32 t0, t1;
         v_expand(v_src1, t0, t1);
 
-        v_int32 r0 = op::r(t0, scalar);
-        v_int32 r1 = op::r(t1, scalar);
+        v_float32 f0, f1;
+        f0 = v_cvt_f32(t0);
+        f1 = v_cvt_f32(t1);
+
+        f0 = op::r(f0, scalar);
+        f1 = op::r(f1, scalar);
+
+        v_int32 r0 = v_round(f0);
+        v_int32 r1 = v_round(f1);
 
         store(dst, v_src1, r0, r1);
     }
@@ -942,11 +958,20 @@ struct scalar_loader_n<sizeof(ushort), OP, T1, T2, Tvec>
         Tvec v_src2 = vx_load(src2);
 
         Twvec t0, t1, t2, t3;
-        v_expand(v_src1, t0, t1);
-        v_expand(v_src2, t2, t3);
+        v_expand(v_src1, t0, t2);
+        v_expand(v_src2, t1, t3);
 
-        v_int32 r0 = op::r(v_reinterpret_as_s32(t0), v_reinterpret_as_s32(t2), scalar);
-        v_int32 r1 = op::r(v_reinterpret_as_s32(t1), v_reinterpret_as_s32(t3), scalar);
+        v_float32 f0, f1, f2, f3;
+        f0 = v_cvt_f32(v_reinterpret_as_s32(t0));
+        f1 = v_cvt_f32(v_reinterpret_as_s32(t1));
+        f2 = v_cvt_f32(v_reinterpret_as_s32(t2));
+        f3 = v_cvt_f32(v_reinterpret_as_s32(t3));
+
+        f0 = op::r(f0, f1, scalar);
+        f2 = op::r(f2, f3, scalar);
+
+        v_int32 r0 = v_round(f0);
+        v_int32 r1 = v_round(f2);
 
         store(dst, v_src2, r0, r1);
     }
@@ -958,8 +983,15 @@ struct scalar_loader_n<sizeof(ushort), OP, T1, T2, Tvec>
         Twvec t0, t1;
         v_expand(v_src1, t0, t1);
 
-        v_int32 r0 = op::r(v_reinterpret_as_s32(t0), scalar);
-        v_int32 r1 = op::r(v_reinterpret_as_s32(t1), scalar);
+        v_float32 f0, f1;
+        f0 = v_cvt_f32(v_reinterpret_as_s32(t0));
+        f1 = v_cvt_f32(v_reinterpret_as_s32(t1));
+
+        f0 = op::r(f0, scalar);
+        f1 = op::r(f1, scalar);
+
+        v_int32 r0 = v_round(f0);
+        v_int32 r1 = v_round(f1);
 
         store(dst, v_src1, r0, r1);
     }
@@ -987,8 +1019,17 @@ struct scalar_loader_n<sizeof(int), OP, int, T2, v_int32>
         v_int32 v_src1s = vx_load(src1 + step);
         v_int32 v_src2s = vx_load(src2 + step);
 
-        v_int32 r0 = op::r(v_src1, v_src2, scalar);
-        v_int32 r1 = op::r(v_src1s, v_src2s, scalar);
+        v_float32 f0, f1, f2, f3;
+        f0 = v_cvt_f32(v_reinterpret_as_s32(v_src1));
+        f1 = v_cvt_f32(v_reinterpret_as_s32(v_src2));
+        f2 = v_cvt_f32(v_reinterpret_as_s32(v_src1s));
+        f3 = v_cvt_f32(v_reinterpret_as_s32(v_src2s));
+
+        f0 = op::r(f0, f1, scalar);
+        f2 = op::r(f2, f3, scalar);
+
+        v_int32 r0 = v_round(f0);
+        v_int32 r1 = v_round(f2);
 
         r0 = op::pre(v_src2, r0);
         r1 = op::pre(v_src2s, r1);
@@ -1002,8 +1043,15 @@ struct scalar_loader_n<sizeof(int), OP, int, T2, v_int32>
         v_int32 v_src1 = vx_load(src1);
         v_int32 v_src1s = vx_load(src1 + step);
 
-        v_int32 r0 = op::r(v_src1, scalar);
-        v_int32 r1 = op::r(v_src1s, scalar);
+        v_float32 f0, f1;
+        f0 = v_cvt_f32(v_src1);
+        f1 = v_cvt_f32(v_src1s);
+
+        f0 = op::r(f0, scalar);
+        f1 = op::r(f1, scalar);
+
+        v_int32 r0 = v_round(f0);
+        v_int32 r1 = v_round(f1);
 
         r0 = op::pre(v_src1, r0);
         r1 = op::pre(v_src1s, r1);
@@ -1403,30 +1451,14 @@ struct op_mul
 template<typename T1, typename T2, typename Tvec>
 struct op_mul_scale
 {
-    static inline v_int32 r(const v_int32& a, const v_int32& b, const T2* scalar)
-    {
-        const v_float32 v_scalar = vx_setall_f32(*scalar);
-        v_float32 f0 = v_cvt_f32(a);
-        v_float32 f1 = v_cvt_f32(b);
-        return v_round(v_scalar * f0 * f1);
-    }
-    static inline T1 r(T1 a, T1 b, const T2* scalar)
-    { return c_mul(a, b, *scalar); }
-    static inline Tvec pre(const Tvec&, const Tvec& res)
-    { return res; }
-};
-
-template<>
-struct op_mul_scale<float, float, v_float32>
-{
-    static inline v_float32 r(const v_float32& a, const v_float32& b, const float* scalar)
+    static inline v_float32 r(const v_float32& a, const v_float32& b, const T2* scalar)
     {
         const v_float32 v_scalar = vx_setall_f32(*scalar);
         return v_scalar * a * b;
     }
-    static inline float r(float a, float b, const float* scalar)
+    static inline T1 r(T1 a, T1 b, const T2* scalar)
     { return c_mul(a, b, *scalar); }
-    static inline v_float32 pre(const v_float32&, const v_float32& res)
+    static inline Tvec pre(const Tvec&, const Tvec& res)
     { return res; }
 };
 
@@ -1558,12 +1590,10 @@ struct op_div
 template<typename T1, typename T2, typename Tvec>
 struct op_div_scale
 {
-    static inline v_int32 r(const v_int32& a, const v_int32& b, const T2* scalar)
+    static inline v_float32 r(const v_float32& a, const v_float32& b, const T2* scalar)
     {
         const v_float32 v_scalar = vx_setall_f32(*scalar);
-        v_float32 f0 = v_cvt_f32(a);
-        v_float32 f1 = v_cvt_f32(b);
-        return v_round(f0 * v_scalar / f1);
+        return a * v_scalar / b;
     }
     static inline Tvec pre(const Tvec& denom, const Tvec& res)
     {
@@ -1571,24 +1601,7 @@ struct op_div_scale
         return v_select(denom == v_zero, v_zero, res);
     }
     static inline T1 r(T1 a, T1 denom, const T2* scalar)
-    { return denom != 0 ? c_div(a, denom, *scalar) : 0; }
-};
-
-template<>
-struct op_div_scale<float, float, v_float32>
-{
-    static inline v_float32 r(const v_float32& a, const v_float32& b, const float* scalar)
-    {
-        const v_float32 v_scalar = vx_setall_f32(*scalar);
-        return a * v_scalar / b;
-    }
-    static inline v_float32 pre(const v_float32& denom, const v_float32& res)
-    {
-        const v_float32 v_zero = vx_setzero_f32();
-        return v_select(denom == v_zero, v_zero, res);
-    }
-    static inline float r(float a, float denom, const float* scalar)
-    { return denom != 0.0f ? c_div(a, denom, *scalar) : 0.0f; }
+    { return denom != (T1)0 ? c_div(a, denom, *scalar) : (T1)0; }
 };
 
 template<>
@@ -1678,30 +1691,14 @@ DEFINE_SIMD_ALL(div, div_loop)
 template<typename T1, typename T2, typename Tvec>
 struct op_add_scale
 {
-    static inline v_int32 r(const v_int32& a, const v_int32& b, const T2* scalar)
-    {
-        const v_float32 v_alpha = vx_setall_f32(*scalar);
-        v_float32 f0 = v_cvt_f32(a);
-        v_float32 f1 = v_cvt_f32(b);
-        return v_round(v_fma(f0, v_alpha, f1));
-    }
-    static inline T1 r(T1 a, T1 b, const T2* scalar)
-    { return c_add(a, b, *scalar); }
-    static inline Tvec pre(const Tvec&, const Tvec& res)
-    { return res; }
-};
-
-template<>
-struct op_add_scale<float, float, v_float32>
-{
-    static inline v_float32 r(const v_float32& a, const v_float32& b, const float* scalar)
+    static inline v_float32 r(const v_float32& a, const v_float32& b, const T2* scalar)
     {
         const v_float32 v_alpha = vx_setall_f32(*scalar);
         return v_fma(a, v_alpha, b);
     }
-    static inline float r(float a, float b, const float* scalar)
+    static inline T1 r(T1 a, T1 b, const T2* scalar)
     { return c_add(a, b, *scalar); }
-    static inline v_float32 pre(const v_float32&, const v_float32& res)
+    static inline Tvec pre(const Tvec&, const Tvec& res)
     { return res; }
 };
 
@@ -1725,34 +1722,16 @@ struct op_add_scale<double, double, v_float64>
 template<typename T1, typename T2, typename Tvec>
 struct op_add_weighted
 {
-    static inline v_int32 r(const v_int32& a, const v_int32& b, const T2* scalars)
-    {
-        const v_float32 v_alpha = vx_setall_f32(scalars[0]);
-        const v_float32 v_beta  = vx_setall_f32(scalars[1]);
-        const v_float32 v_gamma = vx_setall_f32(scalars[2]);
-        v_float32 f0 = v_cvt_f32(a);
-        v_float32 f1 = v_cvt_f32(b);
-        return v_round(v_fma(f0, v_alpha, v_fma(f1, v_beta, v_gamma)));
-    }
-    static inline T1 r(T1 a, T1 b, const T2* scalars)
-    { return c_add(a, b, scalars[0], scalars[1], scalars[2]); }
-    static inline Tvec pre(const Tvec&, const Tvec& res)
-    { return res; }
-};
-
-template<>
-struct op_add_weighted<float, float, v_float32>
-{
-    static inline v_float32 r(const v_float32& a, const v_float32& b, const float* scalars)
+    static inline v_float32 r(const v_float32& a, const v_float32& b, const T2* scalars)
     {
         const v_float32 v_alpha = vx_setall_f32(scalars[0]);
         const v_float32 v_beta  = vx_setall_f32(scalars[1]);
         const v_float32 v_gamma = vx_setall_f32(scalars[2]);
         return v_fma(a, v_alpha, v_fma(b, v_beta, v_gamma));
     }
-    static inline float r(float a, float b, const float* scalars)
+    static inline T1 r(T1 a, T1 b, const T2* scalars)
     { return c_add(a, b, scalars[0], scalars[1], scalars[2]); }
-    static inline v_float32 pre(const v_float32&, const v_float32& res)
+    static inline Tvec pre(const Tvec&, const Tvec& res)
     { return res; }
 };
 
@@ -1858,11 +1837,10 @@ DEFINE_SIMD_F64(addWeighted, add_weighted_loop_d)
 template<typename T1, typename T2, typename Tvec>
 struct op_recip
 {
-    static inline v_int32 r(const v_int32& a, const T2* scalar)
+    static inline v_float32 r(const v_float32& a, const T2* scalar)
     {
         const v_float32 v_scalar = vx_setall_f32(*scalar);
-        v_float32 f0 = v_cvt_f32(a);
-        return v_round(v_scalar / f0);
+        return v_scalar / a;
     }
     static inline Tvec pre(const Tvec& denom, const Tvec& res)
     {
@@ -1870,24 +1848,7 @@ struct op_recip
         return v_select(denom == v_zero, v_zero, res);
     }
     static inline T1 r(T1 denom, const T2* scalar)
-    { return denom != 0 ? c_div(*scalar, denom) : 0; }
-};
-
-template<>
-struct op_recip<float, float, v_float32>
-{
-    static inline v_float32 r(const v_float32& a, const float* scalar)
-    {
-        const v_float32 v_scalar = vx_setall_f32(*scalar);
-        return v_scalar / a;
-    }
-    static inline v_float32 pre(const v_float32& denom, const v_float32& res)
-    {
-        const v_float32 v_zero = vx_setzero_f32();
-        return v_select(denom == v_zero, v_zero, res);
-    }
-    static inline float r(float denom, const float* scalar)
-    { return denom != 0.0f ? c_div(*scalar, denom) : 0.0f; }
+    { return denom != (T1)0 ? c_div(*scalar, denom) : (T1)0; }
 };
 
 template<>
