@@ -984,13 +984,14 @@ struct scalar_loader_n<sizeof(int), OP, int, T2, v_int32>
     {
         v_int32 v_src1 = vx_load(src1);
         v_int32 v_src2 = vx_load(src2);
-        v_int32 r0 = op::r(v_src1, v_src2, scalar);
-                r0 = op::pre(v_src2, r0);
+        v_int32 v_src1s = vx_load(src1 + step);
+        v_int32 v_src2s = vx_load(src2 + step);
 
-        v_src1 = vx_load(src1 + step);
-        v_src2 = vx_load(src2 + step);
-        v_int32 r1 = op::r(v_src1, v_src2, scalar);
-                r1 = op::pre(v_src2, r1);
+        v_int32 r0 = op::r(v_src1, v_src2, scalar);
+        v_int32 r1 = op::r(v_src1s, v_src2s, scalar);
+
+        r0 = op::pre(v_src2, r0);
+        r1 = op::pre(v_src2s, r1);
 
         v_store(dst, r0);
         v_store(dst + step, r1);
@@ -999,12 +1000,13 @@ struct scalar_loader_n<sizeof(int), OP, int, T2, v_int32>
     static inline void l(const int* src1, const T2* scalar, int* dst)
     {
         v_int32 v_src1 = vx_load(src1);
-        v_int32 r0 = op::r(v_src1, scalar);
-                r0 = op::pre(v_src1, r0);
+        v_int32 v_src1s = vx_load(src1 + step);
 
-        v_src1 = vx_load(src1 + step);
-        v_int32 r1 = op::r(v_src1, scalar);
-                r1 = op::pre(v_src1, r1);
+        v_int32 r0 = op::r(v_src1, scalar);
+        v_int32 r1 = op::r(v_src1s, scalar);
+
+        r0 = op::pre(v_src1, r0);
+        r1 = op::pre(v_src1s, r1);
 
         v_store(dst, r0);
         v_store(dst + step, r1);
@@ -1019,34 +1021,34 @@ struct scalar_loader_n<sizeof(float), OP, float, T2, v_float32>
 
     static inline void l(const float* src1, const float* src2, const T2* scalar, float* dst)
     {
-        v_float32 f0 = vx_load(src1);
-        v_float32 f1 = vx_load(src2);
-        v_float32 f2 = vx_load(src1 + step);
-        v_float32 f3 = vx_load(src2 + step);
+        v_float32 v_src1 = vx_load(src1);
+        v_float32 v_src2 = vx_load(src2);
+        v_float32 v_src1s = vx_load(src1 + step);
+        v_float32 v_src2s = vx_load(src2 + step);
 
-        f0 = op::r(f0, f1, scalar);
-        f0 = op::pre(f1, f0);
+        v_float32 r0 = op::r(v_src1, v_src2, scalar);
+        v_float32 r1 = op::r(v_src1s, v_src2s, scalar);
 
-        f2 = op::r(f2, f3, scalar);
-        f2 = op::pre(f3, f2);
+        r0 = op::pre(v_src2, r0);
+        r1 = op::pre(v_src2s, r1);
 
-        v_store(dst, f0);
-        v_store(dst + step, f2);
+        v_store(dst, r0);
+        v_store(dst + step, r1);
     }
 
     static inline void l(const float* src1, const T2* scalar, float* dst)
     {
-        v_float32 f0 = vx_load(src1);
-        v_float32 f1 = vx_load(src1 + step);
+        v_float32 v_src1 = vx_load(src1);
+        v_float32 v_src1s = vx_load(src1 + step);
 
-        f0 = op::r(f0, scalar);
-        f0 = op::pre(f0, f0);
+        v_float32 r0 = op::r(v_src1, scalar);
+        v_float32 r1 = op::r(v_src1s, scalar);
 
-        f1 = op::r(f1, scalar);
-        f1 = op::pre(f1, f1);
+        r0 = op::pre(v_src1, r0);
+        r1 = op::pre(v_src1s, r1);
 
-        v_store(dst, f0);
-        v_store(dst + step, f1);
+        v_store(dst, r0);
+        v_store(dst + step, r1);
     }
 };
 #endif // CV_SIMD
@@ -1063,13 +1065,14 @@ struct scalar_loader_n<sizeof(int), OP, int, double, v_int32>
     {
         v_int32 v_src1 = vx_load(src1);
         v_int32 v_src2 = vx_load(src2);
-        v_int32 r0 = r(v_src1, v_src2, scalar);
-                r0 = op::pre(v_src2, r0);
+        v_int32 v_src1s = vx_load(src1 + step);
+        v_int32 v_src2s = vx_load(src2 + step);
 
-        v_src1 = vx_load(src1 + step);
-        v_src2 = vx_load(src2 + step);
-        v_int32 r1 = r(v_src1, v_src2, scalar);
-                r1 = op::pre(v_src2, r1);
+        v_int32 r0 = r(v_src1, v_src2, scalar);
+        v_int32 r1 = r(v_src1s, v_src2s, scalar);
+
+        r0 = op::pre(v_src2, r0);
+        r1 = op::pre(v_src2s, r1);
 
         v_store(dst, r0);
         v_store(dst + step, r1);
@@ -1077,12 +1080,13 @@ struct scalar_loader_n<sizeof(int), OP, int, double, v_int32>
     static inline void l(const int* src1, const double* scalar, int* dst)
     {
         v_int32 v_src1 = vx_load(src1);
-        v_int32 r0 = r(v_src1, scalar);
-                r0 = op::pre(v_src1, r0);
+        v_int32 v_src1s = vx_load(src1 + step);
 
-        v_src1 = vx_load(src1 + step);
-        v_int32 r1 = r(v_src1, scalar);
-                r1 = op::pre(v_src1, r1);
+        v_int32 r0 = r(v_src1, scalar);
+        v_int32 r1 = r(v_src1s, scalar);
+
+        r0 = op::pre(v_src1, r0);
+        r1 = op::pre(v_src1s, r1);
 
         v_store(dst, r0);
         v_store(dst + step, r1);
@@ -1123,33 +1127,33 @@ struct scalar_loader_n<sizeof(float), OP, float, double, v_float32>
 
     static inline void l(const float* src1, const float* src2, const double* scalar, float* dst)
     {
-        v_float32 f0 = vx_load(src1);
-        v_float32 f1 = vx_load(src2);
-        v_float32 f2 = vx_load(src1 + step);
-        v_float32 f3 = vx_load(src2 + step);
+        v_float32 v_src1 = vx_load(src1);
+        v_float32 v_src2 = vx_load(src2);
+        v_float32 v_src1s = vx_load(src1 + step);
+        v_float32 v_src2s = vx_load(src2 + step);
 
-        f0 = r(f0, f1, scalar);
-        f0 = op::pre(f1, f0);
+        v_float32 r0 = r(v_src1, v_src2, scalar);
+        v_float32 r1 = r(v_src1s, v_src2s, scalar);
 
-        f2 = r(f2, f3, scalar);
-        f2 = op::pre(f3, f2);
+        r0 = op::pre(v_src2, r0);
+        r1 = op::pre(v_src2s, r1);
 
-        v_store(dst, f0);
-        v_store(dst + step, f2);
+        v_store(dst, r0);
+        v_store(dst + step, r1);
     }
     static inline void l(const float* src1, const double* scalar, float* dst)
     {
-        v_float32 f0 = vx_load(src1);
-        v_float32 f1 = vx_load(src1 + step);
+        v_float32 v_src1 = vx_load(src1);
+        v_float32 v_src1s = vx_load(src1 + step);
 
-        f0 = r(f0, scalar);
-        f0 = op::pre(f0, f0);
+        v_float32 r0 = r(v_src1, scalar);
+        v_float32 r1 = r(v_src1s, scalar);
 
-        f1 = r(f1, scalar);
-        f1 = op::pre(f1, f1);
+        r0 = op::pre(v_src1, r0);
+        r1 = op::pre(v_src1s, r1);
 
-        v_store(dst, f0);
-        v_store(dst + step, f1);
+        v_store(dst, r0);
+        v_store(dst + step, r1);
     }
 
     static inline v_float32 r(const v_float32& a, const v_float32& b, const double* scalar)
@@ -1186,33 +1190,33 @@ struct scalar_loader_n<sizeof(double), OP, double, double, v_float64>
 
     static inline void l(const double* src1, const double* src2, const double* scalar, double* dst)
     {
-        v_float64 f0 = vx_load(src1);
-        v_float64 f1 = vx_load(src2);
-        v_float64 f2 = vx_load(src1 + step);
-        v_float64 f3 = vx_load(src2 + step);
+        v_float64 v_src1 = vx_load(src1);
+        v_float64 v_src2 = vx_load(src2);
+        v_float64 v_src1s = vx_load(src1 + step);
+        v_float64 v_src2s = vx_load(src2 + step);
 
-        f0 = op::r(f0, f1, scalar);
-        f0 = op::pre(f1, f0);
+        v_float64 r0 = op::r(v_src1, v_src2, scalar);
+        v_float64 r1 = op::r(v_src1s, v_src2s, scalar);
 
-        f2 = op::r(f2, f3, scalar);
-        f2 = op::pre(f3, f2);
+        r0 = op::pre(v_src2, r0);
+        r1 = op::pre(v_src2s, r1);
 
-        v_store(dst, f0);
-        v_store(dst + step, f2);
+        v_store(dst, r0);
+        v_store(dst + step, r1);
     }
     static inline void l(const double* src1, const double* scalar, double* dst)
     {
-        v_float64 f0 = vx_load(src1);
-        v_float64 f1 = vx_load(src1 + step);
+        v_float64 v_src1 = vx_load(src1);
+        v_float64 v_src1s = vx_load(src1 + step);
 
-        f0 = op::r(f0, scalar);
-        f0 = op::pre(f0, f0);
+        v_float64 r0 = op::r(v_src1, scalar);
+        v_float64 r1 = op::r(v_src1s, scalar);
 
-        f1 = op::r(f1, scalar);
-        f1 = op::pre(f1, f1);
+        r0 = op::pre(v_src1, r0);
+        r1 = op::pre(v_src1s, r1);
 
-        v_store(dst, f0);
-        v_store(dst + step, f1);
+        v_store(dst, r0);
+        v_store(dst + step, r1);
     }
 };
 #endif // CV_SIMD_64F
