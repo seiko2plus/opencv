@@ -656,28 +656,19 @@ OPENCV_HAL_IMPL_AVX_BIN_OP(-, v_float64x4, _mm256_sub_pd)
 OPENCV_HAL_IMPL_AVX_BIN_OP(*, v_float64x4, _mm256_mul_pd)
 OPENCV_HAL_IMPL_AVX_BIN_OP(/, v_float64x4, _mm256_div_pd)
 
-// saturating multiply 8-bit
+// saturating multiply 8-bit, 16-bit
 inline v_uint8x32 operator * (const v_uint8x32& a, const v_uint8x32& b)
 {
-    __m256i a0 = _mm256_cvtepu8_epi16(_v256_extract_low(a.val));
-    __m256i a1 = _mm256_cvtepu8_epi16(_v256_extract_high(a.val));
-    __m256i b0 = _mm256_cvtepu8_epi16(_v256_extract_low(b.val));
-    __m256i b1 = _mm256_cvtepu8_epi16(_v256_extract_high(b.val));
-    __m256i p0 = _mm256_mullo_epi16(a0, b0);
-    __m256i p1 = _mm256_mullo_epi16(a1, b1);
-    return v_uint8x32(_v256_shuffle_odd_64(_mm256_packus_epi16(p0, p1)));
+    v_uint16x16 c, d;
+    v_mul_expand(a, b, c, d);
+    return v_pack_u(v_reinterpret_as_s16(c), v_reinterpret_as_s16(d));
 }
 inline v_int8x32 operator * (const v_int8x32& a, const v_int8x32& b)
 {
-    __m256i a0 = _mm256_cvtepi8_epi16(_v256_extract_low(a.val));
-    __m256i a1 = _mm256_cvtepi8_epi16(_v256_extract_high(a.val));
-    __m256i b0 = _mm256_cvtepi8_epi16(_v256_extract_low(b.val));
-    __m256i b1 = _mm256_cvtepi8_epi16(_v256_extract_high(b.val));
-    __m256i p0 = _mm256_mullo_epi16(a0, b0);
-    __m256i p1 = _mm256_mullo_epi16(a1, b1);
-    return v_int8x32(_v256_shuffle_odd_64(_mm256_packs_epi16(p0, p1)));
+    v_int16x16 c, d;
+    v_mul_expand(a, b, c, d);
+    return v_pack(c, d);
 }
-// saturating multiply 16-bit
 inline v_uint16x16 operator * (const v_uint16x16& a, const v_uint16x16& b)
 {
     __m256i pl = _mm256_mullo_epi16(a.val, b.val);
@@ -694,6 +685,14 @@ inline v_int16x16 operator * (const v_int16x16& a, const v_int16x16& b)
     __m256i p1 = _mm256_unpackhi_epi16(pl, ph);
     return v_int16x16(_mm256_packs_epi32(p0, p1));
 }
+inline v_uint8x32& operator *= (v_uint8x32& a, const v_uint8x32& b)
+{ a = a * b; return a; }
+inline v_int8x32& operator *= (v_int8x32& a, const v_int8x32& b)
+{ a = a * b; return a; }
+inline v_uint16x16& operator *= (v_uint16x16& a, const v_uint16x16& b)
+{ a = a * b; return a; }
+inline v_int16x16& operator *= (v_int16x16& a, const v_int16x16& b)
+{ a = a * b; return a; }
 
 /** Non-saturating arithmetics **/
 #define OPENCV_HAL_IMPL_AVX_BIN_FUNC(func, _Tpvec, intrin) \
@@ -724,6 +723,27 @@ inline v_uint8x32 v_mul_wrap(const v_uint8x32& a, const v_uint8x32& b)
 inline v_int8x32 v_mul_wrap(const v_int8x32& a, const v_int8x32& b)
 {
     return v_reinterpret_as_s8(v_mul_wrap(v_reinterpret_as_u8(a), v_reinterpret_as_u8(b)));
+}
+
+//  Multiply and expand
+inline void v_mul_expand(const v_uint8x32& a, const v_uint8x32& b,
+                         v_uint16x16& c, v_uint16x16& d)
+{
+    v_uint16x16 a0, a1, b0, b1;
+    v_expand(a, a0, a1);
+    v_expand(b, b0, b1);
+    c = v_mul_wrap(a0, b0);
+    d = v_mul_wrap(a1, b1);
+}
+
+inline void v_mul_expand(const v_int8x32& a, const v_int8x32& b,
+                         v_int16x16& c, v_int16x16& d)
+{
+    v_int16x16 a0, a1, b0, b1;
+    v_expand(a, a0, a1);
+    v_expand(b, b0, b1);
+    c = v_mul_wrap(a0, b0);
+    d = v_mul_wrap(a1, b1);
 }
 
 inline void v_mul_expand(const v_int16x16& a, const v_int16x16& b,
@@ -1492,7 +1512,12 @@ inline void v_pack_store(schar* ptr, const v_int16x16& a)
 { v_store_low(ptr, v_pack(a, a)); }
 
 inline void v_pack_store(uchar* ptr, const v_uint16x16& a)
-{ v_store_low(ptr, v_pack(a, a)); }
+{
+    const __m256i m = _mm256_set1_epi16(255);
+    __m256i am = _mm256_min_epu16(a.val, m);
+            am =  _v256_shuffle_odd_64(_mm256_packus_epi16(am, am));
+    v_store_low(ptr, v_uint8x32(am));
+}
 
 inline void v_pack_u_store(uchar* ptr, const v_int16x16& a)
 { v_store_low(ptr, v_pack_u(a, a)); }
@@ -1546,16 +1571,21 @@ inline v_int16x16 v_pack(const v_int32x8& a, const v_int32x8& b)
 { return v_int16x16(_v256_shuffle_odd_64(_mm256_packs_epi32(a.val, b.val))); }
 
 inline v_uint16x16 v_pack(const v_uint32x8& a, const v_uint32x8& b)
-{ return v_uint16x16(_v256_shuffle_odd_64(_mm256_packus_epi32(a.val, b.val))); }
+{ return v_uint16x16(_v256_shuffle_odd_64(_v256_packs_epu32(a.val, b.val))); }
 
 inline v_uint16x16 v_pack_u(const v_int32x8& a, const v_int32x8& b)
-{ return v_pack(v_reinterpret_as_u32(a), v_reinterpret_as_u32(b)); }
+{ return v_uint16x16(_v256_shuffle_odd_64(_mm256_packus_epi32(a.val, b.val))); }
 
 inline void v_pack_store(short* ptr, const v_int32x8& a)
 { v_store_low(ptr, v_pack(a, a)); }
 
 inline void v_pack_store(ushort* ptr, const v_uint32x8& a)
-{ v_store_low(ptr, v_pack(a, a)); }
+{
+    const __m256i m = _mm256_set1_epi32(65535);
+    __m256i am = _mm256_min_epu32(a.val, m);
+            am = _v256_shuffle_odd_64(_mm256_packus_epi32(am, am));
+    v_store_low(ptr, v_uint16x16(am));
+}
 
 inline void v_pack_u_store(ushort* ptr, const v_int32x8& a)
 { v_store_low(ptr, v_pack_u(a, a)); }

@@ -474,31 +474,35 @@ inline v_float32x4& operator /= (v_float32x4& a, const v_float32x4& b)
 }
 #endif
 
-// saturating multiply 8-bit
-inline v_uint8x16 operator * (const v_uint8x16& a, const v_uint8x16& b)
+// saturating multiply 8-bit, 16-bit
+#define OPENCV_HAL_IMPL_NEON_MUL_SAT(_Tpvec, _Tpwvec)            \
+    inline _Tpvec operator * (const _Tpvec& a, const _Tpvec& b)  \
+    {                                                            \
+        _Tpwvec c, d;                                            \
+        v_mul_expand(a, b, c, d);                                \
+        return v_pack(c, d);                                     \
+    }                                                            \
+    inline _Tpvec& operator *= (_Tpvec& a, const _Tpvec& b)      \
+    { a = a * b; return a; }
+
+OPENCV_HAL_IMPL_NEON_MUL_SAT(v_int8x16,  v_int16x8)
+OPENCV_HAL_IMPL_NEON_MUL_SAT(v_uint8x16, v_uint16x8)
+OPENCV_HAL_IMPL_NEON_MUL_SAT(v_int16x8,  v_int32x4)
+OPENCV_HAL_IMPL_NEON_MUL_SAT(v_uint16x8, v_uint32x4)
+
+//  Multiply and expand
+inline void v_mul_expand(const v_int8x16& a, const v_int8x16& b,
+                         v_int16x8& c, v_int16x8& d)
 {
-    uint16x8_t p0 = vmull_u8(vget_low_u8(a.val), vget_low_u8(b.val));
-    uint16x8_t p1 = vmull_u8(vget_high_u8(a.val), vget_high_u8(b.val));
-    return v_uint8x16(vcombine_u8(vqmovn_u16(p0), vqmovn_u16(p1)));
+    c.val = vmull_s8(vget_low_s8(a.val), vget_low_s8(b.val));
+    d.val = vmull_s8(vget_high_s8(a.val), vget_high_s8(b.val));
 }
-inline v_int8x16 operator * (const v_int8x16& a, const v_int8x16& b)
+
+inline void v_mul_expand(const v_uint8x16& a, const v_uint8x16& b,
+                         v_uint16x8& c, v_uint16x8& d)
 {
-    int16x8_t p0 = vmull_s8(vget_low_s8(a.val), vget_low_s8(b.val));
-    int16x8_t p1 = vmull_s8(vget_high_s8(a.val), vget_high_s8(b.val));
-    return v_int8x16(vcombine_s8(vqmovn_s16(p0), vqmovn_s16(p1)));
-}
-// saturating multiply 16-bit
-inline v_uint16x8 operator * (const v_uint16x8& a, const v_uint16x8& b)
-{
-    uint32x4_t p0 = vmull_u16(vget_low_u16(a.val), vget_low_u16(b.val));
-    uint32x4_t p1 = vmull_u16(vget_high_u16(a.val), vget_high_u16(b.val));
-    return v_uint16x8(vcombine_u16(vqmovn_u32(p0), vqmovn_u32(p1)));
-}
-inline v_int16x8 operator * (const v_int16x8& a, const v_int16x8& b)
-{
-    int32x4_t p0 = vmull_s16(vget_low_s16(a.val), vget_low_s16(b.val));
-    int32x4_t p1 = vmull_s16(vget_high_s16(a.val), vget_high_s16(b.val));
-    return v_int16x8(vcombine_s16(vqmovn_s32(p0), vqmovn_s32(p1)));
+    c.val = vmull_u8(vget_low_u8(a.val), vget_low_u8(b.val));
+    d.val = vmull_u8(vget_high_u8(a.val), vget_high_u8(b.val));
 }
 
 inline void v_mul_expand(const v_int16x8& a, const v_int16x8& b,

@@ -189,8 +189,8 @@ Regular integers:
 |add, sub           | x | x | x | x | x | x |
 |add_wrap, sub_wrap | x | x | x | x |   |   |
 |mul_wrap           | x | x | x | x |   |   |
-|mul                |   |   | x | x | x | x |
-|mul_expand         |   |   | x | x | x |   |
+|mul                | x | x | x | x | x | x |
+|mul_expand         | x | x | x | x | x |   |
 |compare            | x | x | x | x | x | x |
 |shift              |   |   | x | x | x | x |
 |dotprod            |   |   |   | x |   |   |

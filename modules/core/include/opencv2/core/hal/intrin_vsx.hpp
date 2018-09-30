@@ -440,25 +440,26 @@ OPENCV_HAL_IMPL_VSX_BIN_OP(+, v_int64x2, vec_add)
 OPENCV_HAL_IMPL_VSX_BIN_OP(-, v_int64x2, vec_sub)
 
 // saturating multiply
-template<typename _Tvec, typename _Texp>
-inline _Tvec __vec_muls(const _Tvec& a, const _Tvec& b)
-{
-    _Texp p0 = vec_mule(a, b);
-    _Texp p1 = vec_mulo(a, b);
-    return vec_packs(vec_mergeh(p0, p1), vec_mergel(p0, p1));
-}
-#define OPENCV_HAL_IMPL_VSX_MULS(_Tvec, _Texp) __vec_muls<_Tvec, _Texp>
+#define OPENCV_HAL_IMPL_VSX_MUL_SAT(_Tpvec, _Tpwvec)             \
+    inline _Tpvec operator * (const _Tpvec& a, const _Tpvec& b)  \
+    {                                                            \
+        _Tpwvec c, d;                                            \
+        v_mul_expand(a, b, c, d);                                \
+        return v_pack(c, d);                                     \
+    }                                                            \
+    inline _Tpvec& operator *= (_Tpvec& a, const _Tpvec& b)      \
+    { a = a * b; return a; }
 
-OPENCV_HAL_IMPL_VSX_BIN_OP(*, v_uint8x16, OPENCV_HAL_IMPL_VSX_MULS(vec_uchar16, vec_ushort8))
-OPENCV_HAL_IMPL_VSX_BIN_OP(*, v_int8x16,  OPENCV_HAL_IMPL_VSX_MULS(vec_char16,  vec_short8))
-OPENCV_HAL_IMPL_VSX_BIN_OP(*, v_uint16x8, OPENCV_HAL_IMPL_VSX_MULS(vec_ushort8, vec_uint4))
-OPENCV_HAL_IMPL_VSX_BIN_OP(*, v_int16x8,  OPENCV_HAL_IMPL_VSX_MULS(vec_short8,  vec_int4))
+OPENCV_HAL_IMPL_VSX_MUL_SAT(v_int8x16,  v_int16x8)
+OPENCV_HAL_IMPL_VSX_MUL_SAT(v_uint8x16, v_uint16x8)
+OPENCV_HAL_IMPL_VSX_MUL_SAT(v_int16x8,  v_int32x4)
+OPENCV_HAL_IMPL_VSX_MUL_SAT(v_uint16x8, v_uint32x4)
 
-template<typename Tvec, typename Texp>
-inline void v_mul_expand(const Tvec& a, const Tvec& b, Texp& c, Texp& d)
+template<typename Tvec, typename Twvec>
+inline void v_mul_expand(const Tvec& a, const Tvec& b, Twvec& c, Twvec& d)
 {
-    Texp p0 = Texp(vec_mule(a.val, b.val));
-    Texp p1 = Texp(vec_mulo(a.val, b.val));
+    Twvec p0 = Twvec(vec_mule(a.val, b.val));
+    Twvec p1 = Twvec(vec_mulo(a.val, b.val));
     v_zip(p0, p1, c, d);
 }
 
