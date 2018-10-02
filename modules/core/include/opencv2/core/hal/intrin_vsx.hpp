@@ -315,6 +315,10 @@ inline void v_expand(const _Tpvec& a, _Tpwvec& b0, _Tpwvec& b1)   \
     b0.val = fh(a.val);                                           \
     b1.val = fl(a.val);                                           \
 }                                                                 \
+inline _Tpwvec v_expand_low(const _Tpvec& a)                      \
+{ return _Tpwvec(fh(a.val)); }                                    \
+inline _Tpwvec v_expand_high(const _Tpvec& a)                     \
+{ return _Tpwvec(fl(a.val)); }                                    \
 inline _Tpwvec v_load_expand(const _Tp* ptr)                      \
 { return _Tpwvec(fh(vec_ld_l8(ptr))); }
 

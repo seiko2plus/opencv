@@ -1515,6 +1515,10 @@ OPENCV_HAL_IMPL_SSE_SELECT(v_float64x2, pd)
         b0.val = intrin(a.val);                                     \
         b1.val = __CV_CAT(intrin, _high)(a.val);                    \
     }                                                               \
+    inline _Tpwvec v_expand_low(const _Tpvec& a)                    \
+    { return _Tpwvec(intrin(a.val)); }                              \
+    inline _Tpwvec v_expand_high(const _Tpvec& a)                   \
+    { return _Tpwvec(__CV_CAT(intrin, _high)(a.val)); }             \
     inline _Tpwvec v_load_expand(const _Tp* ptr)                    \
     {                                                               \
         __m128i a = _mm_loadl_epi64((const __m128i*)ptr);           \

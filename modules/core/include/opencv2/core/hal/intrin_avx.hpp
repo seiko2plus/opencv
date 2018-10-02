@@ -1467,6 +1467,10 @@ OPENCV_HAL_IMPL_AVX_TRANSPOSE4x4(v_float32x8, ps, _mm256_castps_si256, _mm256_ca
         b0.val = intrin(_v256_extract_low(a.val));                  \
         b1.val = intrin(_v256_extract_high(a.val));                 \
     }                                                               \
+    inline _Tpwvec v_expand_low(const _Tpvec& a)                    \
+    { return _Tpwvec(intrin(_v256_extract_low(a.val))); }           \
+    inline _Tpwvec v_expand_high(const _Tpvec& a)                   \
+    { return _Tpwvec(intrin(_v256_extract_high(a.val))); }          \
     inline _Tpwvec v256_load_expand(const _Tp* ptr)                 \
     {                                                               \
         __m128i a = _mm_loadu_si128((const __m128i*)ptr);           \

@@ -74,6 +74,28 @@ void v_expand(const __CV_V_UINT16&, __CV_V_UINT32&, __CV_V_UINT32&);
 void v_expand(const __CV_V_INT16&,  __CV_V_INT32&,  __CV_V_INT32&);
 void v_expand(const __CV_V_UINT32&, __CV_V_UINT64&, __CV_V_UINT64&);
 void v_expand(const __CV_V_INT32&,  __CV_V_INT64&,  __CV_V_INT64&);
+// Low Expansion
+__CV_V_UINT16 v_expand_low(const __CV_V_UINT8&);
+__CV_V_INT16  v_expand_low(const __CV_V_INT8&);
+__CV_V_UINT32 v_expand_low(const __CV_V_UINT16&);
+__CV_V_INT32  v_expand_low(const __CV_V_INT16&);
+__CV_V_UINT64 v_expand_low(const __CV_V_UINT32&);
+__CV_V_INT64  v_expand_low(const __CV_V_INT32&);
+// High Expansion
+__CV_V_UINT16 v_expand_high(const __CV_V_UINT8&);
+__CV_V_INT16  v_expand_high(const __CV_V_INT8&);
+__CV_V_UINT32 v_expand_high(const __CV_V_UINT16&);
+__CV_V_INT32  v_expand_high(const __CV_V_INT16&);
+__CV_V_UINT64 v_expand_high(const __CV_V_UINT32&);
+__CV_V_INT64  v_expand_high(const __CV_V_INT32&);
+// Load & Low Expansion
+__CV_V_UINT16 __CV_VX(load_expand)(const uchar*);
+__CV_V_INT16  __CV_VX(load_expand)(const schar*);
+__CV_V_UINT32 __CV_VX(load_expand)(const ushort*);
+__CV_V_INT32  __CV_VX(load_expand)(const short*);
+__CV_V_UINT64 __CV_VX(load_expand)(const uint*);
+__CV_V_INT64  __CV_VX(load_expand)(const int*);
+// Load lower 8-bit and expand into 32-bit
 __CV_V_UINT32 __CV_VX(load_expand_q)(const uchar*);
 __CV_V_INT32  __CV_VX(load_expand_q)(const schar*);
 

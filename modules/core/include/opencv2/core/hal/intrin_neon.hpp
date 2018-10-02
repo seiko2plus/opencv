@@ -1089,6 +1089,14 @@ inline void v_expand(const _Tpvec& a, _Tpwvec& b0, _Tpwvec& b1) \
     b0.val = vmovl_##suffix(vget_low_##suffix(a.val)); \
     b1.val = vmovl_##suffix(vget_high_##suffix(a.val)); \
 } \
+inline _Tpwvec v_expand_low(const _Tpvec& a) \
+{ \
+    return _Tpwvec(vmovl_##suffix(vget_low_##suffix(a.val))); \
+} \
+inline _Tpwvec v_expand_high(const _Tpvec& a) \
+{ \
+    return _Tpwvec(vmovl_##suffix(vget_high_##suffix(a.val))); \
+} \
 inline _Tpwvec v_load_expand(const _Tp* ptr) \
 { \
     return _Tpwvec(vmovl_##suffix(vld1_##suffix(ptr))); \

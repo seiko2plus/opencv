@@ -407,10 +407,13 @@ template<typename R> struct TheTest
 
         Data<Rx2> resB = vx_load_expand(dataA.d);
 
-        Rx2 c, d;
+        Rx2 c, d, e, f;
         v_expand(a, c, d);
 
-        Data<Rx2> resC = c, resD = d;
+        e = v_expand_low(a);
+        f = v_expand_high(a);
+
+        Data<Rx2> resC = c, resD = d, resE = e, resF = f;
         const int n = Rx2::nlanes;
         for (int i = 0; i < n; ++i)
         {
@@ -418,6 +421,8 @@ template<typename R> struct TheTest
             EXPECT_EQ(dataA[i], resB[i]);
             EXPECT_EQ(dataA[i], resC[i]);
             EXPECT_EQ(dataA[i + n], resD[i]);
+            EXPECT_EQ(dataA[i], resE[i]);
+            EXPECT_EQ(dataA[i + n], resF[i]);
         }
 
         return *this;
