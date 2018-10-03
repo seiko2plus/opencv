@@ -289,7 +289,6 @@ accW_general_( const T* src, AT* dst, const uchar* mask, int len, int cn, double
     vx_cleanup();
 #endif
 }
-
 void acc_simd_(const uchar* src, float* dst, const uchar* mask, int len, int cn)
 {
     int x = 0;
@@ -472,7 +471,7 @@ void acc_simd_(const ushort* src, float* dst, const uchar* mask, int len, int cn
 #endif // CV_SIMD
     acc_general_(src, dst, mask, len, cn, x);
 }
-
+// todo: remove AVX branch after support it by universal intrinsics
 void acc_simd_(const float* src, float* dst, const uchar* mask, int len, int cn)
 {
     int x = 0;
@@ -1172,11 +1171,9 @@ void accSqr_simd_(const ushort* src, float* dst, const uchar* mask, int len, int
             v_float32 v_float0, v_float1;
             v_float0 = v_cvt_f32(v_reinterpret_as_s32(v_src0));
             v_float1 = v_cvt_f32(v_reinterpret_as_s32(v_src1));
-            v_float0 = v_float0 * v_float0;
-            v_float1 = v_float1 * v_float1;
-            // todo: try fma
-            v_store(dst + x, vx_load(dst + x) + v_float0);
-            v_store(dst + x + step, vx_load(dst + x + step) + v_float1);
+
+            v_store(dst + x, v_fma(v_float0, v_float0, vx_load(dst + x)));
+            v_store(dst + x + step, v_fma(v_float1, v_float1, vx_load(dst + x + step)));
         }
     }
     else
@@ -1200,11 +1197,9 @@ void accSqr_simd_(const ushort* src, float* dst, const uchar* mask, int len, int
                 v_float32 v_float0, v_float1;
                 v_float0 = v_cvt_f32(v_reinterpret_as_s32(v_src0));
                 v_float1 = v_cvt_f32(v_reinterpret_as_s32(v_src1));
-                v_float0 = v_float0 * v_float0;
-                v_float1 = v_float1 * v_float1;
-                // todo: try fma
-                v_store(dst + x, vx_load(dst + x) + v_float0);
-                v_store(dst + x + step, vx_load(dst + x + step) + v_float1);
+
+                v_store(dst + x, v_fma(v_float0, v_float0, vx_load(dst + x)));
+                v_store(dst + x + step, v_fma(v_float1, v_float1, vx_load(dst + x + step)));
             }
         }
         else if (cn == 3)
@@ -1237,19 +1232,20 @@ void accSqr_simd_(const ushort* src, float* dst, const uchar* mask, int len, int
                 v_src11 = v_cvt_f32(v_reinterpret_as_s32(v_int11));
                 v_src20 = v_cvt_f32(v_reinterpret_as_s32(v_int20));
                 v_src21 = v_cvt_f32(v_reinterpret_as_s32(v_int21));
-                v_src00 = v_src00 * v_src00;
-                v_src01 = v_src01 * v_src01;
-                v_src10 = v_src10 * v_src10;
-                v_src11 = v_src11 * v_src11;
-                v_src20 = v_src20 * v_src20;
-                v_src21 = v_src21 * v_src21;
 
                 v_float32 v_dst00, v_dst01, v_dst10, v_dst11, v_dst20, v_dst21;
                 v_load_deinterleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
                 v_load_deinterleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
-                // todo: try fma
-                v_store_interleave(dst + x * cn, v_dst00 + v_src00, v_dst10 + v_src10, v_dst20 + v_src20);
-                v_store_interleave(dst + (x + step) * cn, v_dst01 + v_src01, v_dst11 + v_src11, v_dst21 + v_src21);
+
+                v_dst00 = v_fma(v_src00, v_src00, v_dst00);
+                v_dst01 = v_fma(v_src01, v_src01, v_dst01);
+                v_dst10 = v_fma(v_src10, v_src10, v_dst10);
+                v_dst11 = v_fma(v_src11, v_src11, v_dst11);
+                v_dst20 = v_fma(v_src20, v_src20, v_dst20);
+                v_dst21 = v_fma(v_src21, v_src21, v_dst21);
+
+                v_store_interleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
+                v_store_interleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
             }
         }
     }
@@ -1281,11 +1277,9 @@ void accSqr_simd_(const float* src, float* dst, const uchar* mask, int len, int 
         {
             v_float32 v_src0 = vx_load(src + x);
             v_float32 v_src1 = vx_load(src + x + step);
-            v_src0 = v_src0 * v_src0;
-            v_src1 = v_src1 * v_src1;
-            // todo: try fma
-            v_store(dst + x, vx_load(dst + x) + v_src0);
-            v_store(dst + x + step, vx_load(dst + x + step) + v_src1);
+
+            v_store(dst + x, v_fma(v_src0, v_src0, vx_load(dst + x)));
+            v_store(dst + x + step, v_fma(v_src1, v_src1, vx_load(dst + x + step)));
         }
         #endif // CV_AVX && !CV_AVX2
     }
@@ -1305,11 +1299,9 @@ void accSqr_simd_(const float* src, float* dst, const uchar* mask, int len, int 
                 v_float32 v_src1 = vx_load(src + x + step);
                 v_src0 = v_src0 & v_mask0;
                 v_src1 = v_src1 & v_mask1;
-                v_src0 = v_src0 * v_src0;
-                v_src1 = v_src1 * v_src1;
-                // todo: try fma
-                v_store(dst + x, vx_load(dst + x) + v_src0);
-                v_store(dst + x + step, vx_load(dst + x + step) + v_src1);
+
+                v_store(dst + x, v_fma(v_src0, v_src0, vx_load(dst + x)));
+                v_store(dst + x + step, v_fma(v_src1, v_src1, vx_load(dst + x + step)));
             }
         }
         else if (cn == 3)
@@ -1331,19 +1323,20 @@ void accSqr_simd_(const float* src, float* dst, const uchar* mask, int len, int 
                 v_src11 = v_src11 & v_mask1;
                 v_src20 = v_src20 & v_mask0;
                 v_src21 = v_src21 & v_mask1;
-                v_src00 = v_src00 * v_src00;
-                v_src01 = v_src01 * v_src01;
-                v_src10 = v_src10 * v_src10;
-                v_src11 = v_src11 * v_src11;
-                v_src20 = v_src20 * v_src20;
-                v_src21 = v_src21 * v_src21;
 
                 v_float32 v_dst00, v_dst10, v_dst20, v_dst01, v_dst11, v_dst21;
                 v_load_deinterleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
                 v_load_deinterleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
-                // todo: try fma
-                v_store_interleave(dst + x * cn, v_dst00 + v_src00, v_dst10 + v_src10, v_dst20 + v_src20);
-                v_store_interleave(dst + (x + step) * cn, v_dst01 + v_src01, v_dst11 + v_src11, v_dst21 + v_src21);
+
+                v_dst00 = v_fma(v_src00, v_src00, v_dst00);
+                v_dst01 = v_fma(v_src01, v_src01, v_dst01);
+                v_dst10 = v_fma(v_src10, v_src10, v_dst10);
+                v_dst11 = v_fma(v_src11, v_src11, v_dst11);
+                v_dst20 = v_fma(v_src20, v_src20, v_dst20);
+                v_dst21 = v_fma(v_src21, v_src21, v_dst21);
+
+                v_store_interleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
+                v_store_interleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
             }
         }
     }
@@ -1372,20 +1365,16 @@ void accSqr_simd_(const uchar* src, double* dst, const uchar* mask, int len, int
             v_float64 v_src1 = v_cvt_f64_high(v_reinterpret_as_s32(v_int0));
             v_float64 v_src2 = v_cvt_f64(v_reinterpret_as_s32(v_int1));
             v_float64 v_src3 = v_cvt_f64_high(v_reinterpret_as_s32(v_int1));
-            v_src0 = v_src0 * v_src0;
-            v_src1 = v_src1 * v_src1;
-            v_src2 = v_src2 * v_src2;
-            v_src3 = v_src3 * v_src3;
 
             v_float64 v_dst0 = vx_load(dst + x);
             v_float64 v_dst1 = vx_load(dst + x + step);
             v_float64 v_dst2 = vx_load(dst + x + step * 2);
             v_float64 v_dst3 = vx_load(dst + x + step * 3);
-            // todo: try fma
-            v_dst0 += v_src0;
-            v_dst1 += v_src1;
-            v_dst2 += v_src2;
-            v_dst3 += v_src3;
+
+            v_dst0 = v_fma(v_src0, v_src0, v_dst0);
+            v_dst1 = v_fma(v_src1, v_src1, v_dst1);
+            v_dst2 = v_fma(v_src2, v_src2, v_dst2);
+            v_dst3 = v_fma(v_src3, v_src3, v_dst3);
 
             v_store(dst + x, v_dst0);
             v_store(dst + x + step, v_dst1);
@@ -1412,20 +1401,16 @@ void accSqr_simd_(const uchar* src, double* dst, const uchar* mask, int len, int
                 v_float64 v_src1 = v_cvt_f64_high(v_reinterpret_as_s32(v_int0));
                 v_float64 v_src2 = v_cvt_f64(v_reinterpret_as_s32(v_int1));
                 v_float64 v_src3 = v_cvt_f64_high(v_reinterpret_as_s32(v_int1));
-                v_src0 = v_src0 * v_src0;
-                v_src1 = v_src1 * v_src1;
-                v_src2 = v_src2 * v_src2;
-                v_src3 = v_src3 * v_src3;
 
                 v_float64 v_dst0 = vx_load(dst + x);
                 v_float64 v_dst1 = vx_load(dst + x + step);
                 v_float64 v_dst2 = vx_load(dst + x + step * 2);
                 v_float64 v_dst3 = vx_load(dst + x + step * 3);
-                // todo: try fma
-                v_dst0 += v_src0;
-                v_dst1 += v_src1;
-                v_dst2 += v_src2;
-                v_dst3 += v_src3;
+
+                v_dst0 = v_fma(v_src0, v_src0, v_dst0);
+                v_dst1 = v_fma(v_src1, v_src1, v_dst1);
+                v_dst2 = v_fma(v_src2, v_src2, v_dst2);
+                v_dst3 = v_fma(v_src3, v_src3, v_dst3);
 
                 v_store(dst + x, v_dst0);
                 v_store(dst + x + step, v_dst1);
@@ -1467,29 +1452,30 @@ void accSqr_simd_(const uchar* src, double* dst, const uchar* mask, int len, int
                 v_float64 v_src21 = v_cvt_f64_high(v_reinterpret_as_s32(v_int20));
                 v_float64 v_src22 = v_cvt_f64(v_reinterpret_as_s32(v_int21));
                 v_float64 v_src23 = v_cvt_f64_high(v_reinterpret_as_s32(v_int21));
-                v_src00 = v_src00 * v_src00;
-                v_src01 = v_src01 * v_src01;
-                v_src02 = v_src02 * v_src02;
-                v_src03 = v_src03 * v_src03;
-                v_src10 = v_src10 * v_src10;
-                v_src11 = v_src11 * v_src11;
-                v_src12 = v_src12 * v_src12;
-                v_src13 = v_src13 * v_src13;
-                v_src20 = v_src20 * v_src20;
-                v_src21 = v_src21 * v_src21;
-                v_src22 = v_src22 * v_src22;
-                v_src23 = v_src23 * v_src23;
 
                 v_float64 v_dst00, v_dst01, v_dst02, v_dst03, v_dst10, v_dst11, v_dst12, v_dst13, v_dst20, v_dst21, v_dst22, v_dst23;
                 v_load_deinterleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
                 v_load_deinterleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
                 v_load_deinterleave(dst + (x + step * 2) * cn, v_dst02, v_dst12, v_dst22);
                 v_load_deinterleave(dst + (x + step * 3) * cn, v_dst03, v_dst13, v_dst23);
-                // todo: try fma
-                v_store_interleave(dst + x * cn, v_dst00 + v_src00, v_dst10 + v_src10, v_dst20 + v_src20);
-                v_store_interleave(dst + (x + step) * cn, v_dst01 + v_src01, v_dst11 + v_src11, v_dst21 + v_src21);
-                v_store_interleave(dst + (x + step * 2) * cn, v_dst02 + v_src02, v_dst12 + v_src12, v_dst22 + v_src22);
-                v_store_interleave(dst + (x + step * 3) * cn, v_dst03 + v_src03, v_dst13 + v_src13, v_dst23 + v_src23);
+
+                v_dst00 = v_fma(v_src00, v_src00, v_dst00);
+                v_dst01 = v_fma(v_src01, v_src01, v_dst01);
+                v_dst02 = v_fma(v_src02, v_src02, v_dst02);
+                v_dst03 = v_fma(v_src03, v_src03, v_dst03);
+                v_dst10 = v_fma(v_src10, v_src10, v_dst10);
+                v_dst11 = v_fma(v_src11, v_src11, v_dst11);
+                v_dst12 = v_fma(v_src12, v_src12, v_dst12);
+                v_dst13 = v_fma(v_src13, v_src13, v_dst13);
+                v_dst20 = v_fma(v_src20, v_src20, v_dst20);
+                v_dst21 = v_fma(v_src21, v_src21, v_dst21);
+                v_dst22 = v_fma(v_src22, v_src22, v_dst22);
+                v_dst23 = v_fma(v_src23, v_src23, v_dst23);
+
+                v_store_interleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
+                v_store_interleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
+                v_store_interleave(dst + (x + step * 2) * cn, v_dst02, v_dst12, v_dst22);
+                v_store_interleave(dst + (x + step * 3) * cn, v_dst03, v_dst13, v_dst23);
             }
         }
     }
@@ -1520,20 +1506,16 @@ void accSqr_simd_(const ushort* src, double* dst, const uchar* mask, int len, in
             v_float64 v_src1 = v_cvt_f64_high(v_int0);
             v_float64 v_src2 = v_cvt_f64(v_int1);
             v_float64 v_src3 = v_cvt_f64_high(v_int1);
-            v_src0 = v_src0 * v_src0;
-            v_src1 = v_src1 * v_src1;
-            v_src2 = v_src2 * v_src2;
-            v_src3 = v_src3 * v_src3;
 
             v_float64 v_dst0 = vx_load(dst + x);
             v_float64 v_dst1 = vx_load(dst + x + step);
             v_float64 v_dst2 = vx_load(dst + x + step * 2);
             v_float64 v_dst3 = vx_load(dst + x + step * 3);
-            // todo: try fma
-            v_dst0 += v_src0;
-            v_dst1 += v_src1;
-            v_dst2 += v_src2;
-            v_dst3 += v_src3;
+
+            v_dst0 = v_fma(v_src0, v_src0, v_dst0);
+            v_dst1 = v_fma(v_src1, v_src1, v_dst1);
+            v_dst2 = v_fma(v_src2, v_src2, v_dst2);
+            v_dst3 = v_fma(v_src3, v_src3, v_dst3);
 
             v_store(dst + x, v_dst0);
             v_store(dst + x + step, v_dst1);
@@ -1562,20 +1544,16 @@ void accSqr_simd_(const ushort* src, double* dst, const uchar* mask, int len, in
                 v_float64 v_src1 = v_cvt_f64_high(v_int0);
                 v_float64 v_src2 = v_cvt_f64(v_int1);
                 v_float64 v_src3 = v_cvt_f64_high(v_int1);
-                v_src0 = v_src0 * v_src0;
-                v_src1 = v_src1 * v_src1;
-                v_src2 = v_src2 * v_src2;
-                v_src3 = v_src3 * v_src3;
 
                 v_float64 v_dst0 = vx_load(dst + x);
                 v_float64 v_dst1 = vx_load(dst + x + step);
                 v_float64 v_dst2 = vx_load(dst + x + step * 2);
                 v_float64 v_dst3 = vx_load(dst + x + step * 3);
-                // todo: try fma
-                v_dst0 += v_src0;
-                v_dst1 += v_src1;
-                v_dst2 += v_src2;
-                v_dst3 += v_src3;
+
+                v_dst0 = v_fma(v_src0, v_src0, v_dst0);
+                v_dst1 = v_fma(v_src1, v_src1, v_dst1);
+                v_dst2 = v_fma(v_src2, v_src2, v_dst2);
+                v_dst3 = v_fma(v_src3, v_src3, v_dst3);
 
                 v_store(dst + x, v_dst0);
                 v_store(dst + x + step, v_dst1);
@@ -1611,18 +1589,6 @@ void accSqr_simd_(const ushort* src, double* dst, const uchar* mask, int len, in
                 v_float64 v_src21 = v_cvt_f64_high(v_reinterpret_as_s32(v_int20));
                 v_float64 v_src22 = v_cvt_f64(v_reinterpret_as_s32(v_int21));
                 v_float64 v_src23 = v_cvt_f64_high(v_reinterpret_as_s32(v_int21));
-                v_src00 = v_src00 * v_src00;
-                v_src01 = v_src01 * v_src01;
-                v_src02 = v_src02 * v_src02;
-                v_src03 = v_src03 * v_src03;
-                v_src10 = v_src10 * v_src10;
-                v_src11 = v_src11 * v_src11;
-                v_src12 = v_src12 * v_src12;
-                v_src13 = v_src13 * v_src13;
-                v_src20 = v_src20 * v_src20;
-                v_src21 = v_src21 * v_src21;
-                v_src22 = v_src22 * v_src22;
-                v_src23 = v_src23 * v_src23;
 
                 v_float64 v_dst00, v_dst01, v_dst02, v_dst03;
                 v_float64 v_dst10, v_dst11, v_dst12, v_dst13;
@@ -1631,11 +1597,24 @@ void accSqr_simd_(const ushort* src, double* dst, const uchar* mask, int len, in
                 v_load_deinterleave(dst + (x + step)* cn, v_dst01, v_dst11, v_dst21);
                 v_load_deinterleave(dst + (x + step * 2)* cn, v_dst02, v_dst12, v_dst22);
                 v_load_deinterleave(dst + (x + step * 3)* cn, v_dst03, v_dst13, v_dst23);
-                // todo: try fma
-                v_store_interleave(dst + x * cn, v_dst00 + v_src00, v_dst10 + v_src10, v_dst20 + v_src20);
-                v_store_interleave(dst + (x + step) * cn, v_dst01 + v_src01, v_dst11 + v_src11, v_dst21 + v_src21);
-                v_store_interleave(dst + (x + step * 2) * cn, v_dst02 + v_src02, v_dst12 + v_src12, v_dst22 + v_src22);
-                v_store_interleave(dst + (x + step * 3) * cn, v_dst03 + v_src03, v_dst13 + v_src13, v_dst23 + v_src23);
+
+                v_dst00 = v_fma(v_src00, v_src00, v_dst00);
+                v_dst01 = v_fma(v_src01, v_src01, v_dst01);
+                v_dst02 = v_fma(v_src02, v_src02, v_dst02);
+                v_dst03 = v_fma(v_src03, v_src03, v_dst03);
+                v_dst10 = v_fma(v_src10, v_src10, v_dst10);
+                v_dst11 = v_fma(v_src11, v_src11, v_dst11);
+                v_dst12 = v_fma(v_src12, v_src12, v_dst12);
+                v_dst13 = v_fma(v_src13, v_src13, v_dst13);
+                v_dst20 = v_fma(v_src20, v_src20, v_dst20);
+                v_dst21 = v_fma(v_src21, v_src21, v_dst21);
+                v_dst22 = v_fma(v_src22, v_src22, v_dst22);
+                v_dst23 = v_fma(v_src23, v_src23, v_dst23);
+
+                v_store_interleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
+                v_store_interleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
+                v_store_interleave(dst + (x + step * 2) * cn, v_dst02, v_dst12, v_dst22);
+                v_store_interleave(dst + (x + step * 3) * cn, v_dst03, v_dst13, v_dst23);
             }
         }
     }
@@ -1674,11 +1653,9 @@ void accSqr_simd_(const float* src, double* dst, const uchar* mask, int len, int
             v_float32 v_src = vx_load(src + x);
             v_float64 v_src0 = v_cvt_f64(v_src);
             v_float64 v_src1 = v_cvt_f64_high(v_src);
-            v_src0 = v_src0 * v_src0;
-            v_src1 = v_src1 * v_src1;
-            // todo: try fma
-            v_store(dst + x, vx_load(dst + x) + v_src0);
-            v_store(dst + x + step, vx_load(dst + x + step) + v_src1);
+
+            v_store(dst + x, v_fma(v_src0, v_src0, vx_load(dst + x)));
+            v_store(dst + x + step, v_fma(v_src1, v_src1, vx_load(dst + x + step)));
         }
         #endif // CV_AVX && !CV_AVX2
     }
@@ -1695,11 +1672,9 @@ void accSqr_simd_(const float* src, double* dst, const uchar* mask, int len, int
                 v_src = v_src & v_reinterpret_as_f32(v_mask);
                 v_float64 v_src0 = v_cvt_f64(v_src);
                 v_float64 v_src1 = v_cvt_f64_high(v_src);
-                v_src0 = v_src0 * v_src0;
-                v_src1 = v_src1 * v_src1;
-                // todo: try fma
-                v_store(dst + x, vx_load(dst + x) + v_src0);
-                v_store(dst + x + step, vx_load(dst + x + step) + v_src1);
+
+                v_store(dst + x, v_fma(v_src0, v_src0, vx_load(dst + x)));
+                v_store(dst + x + step, v_fma(v_src1, v_src1, vx_load(dst + x + step)));
             }
         }
         else if (cn == 3)
@@ -1721,19 +1696,20 @@ void accSqr_simd_(const float* src, double* dst, const uchar* mask, int len, int
                 v_float64 v_src11 = v_cvt_f64_high(v_src1);
                 v_float64 v_src20 = v_cvt_f64(v_src2);
                 v_float64 v_src21 = v_cvt_f64_high(v_src2);
-                v_src00 = v_src00 * v_src00;
-                v_src01 = v_src01 * v_src01;
-                v_src10 = v_src10 * v_src10;
-                v_src11 = v_src11 * v_src11;
-                v_src20 = v_src20 * v_src20;
-                v_src21 = v_src21 * v_src21;
 
                 v_float64 v_dst00, v_dst01, v_dst10, v_dst11, v_dst20, v_dst21;
                 v_load_deinterleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
                 v_load_deinterleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
-                // todo: try fma
-                v_store_interleave(dst + x * cn, v_dst00 + v_src00, v_dst10 + v_src10, v_dst20 + v_src20);
-                v_store_interleave(dst + (x + step) * cn, v_dst01 + v_src01, v_dst11 + v_src11, v_dst21 + v_src21);
+
+                v_dst00 = v_fma(v_src00, v_src00, v_dst00);
+                v_dst01 = v_fma(v_src01, v_src01, v_dst01);
+                v_dst10 = v_fma(v_src10, v_src10, v_dst10);
+                v_dst11 = v_fma(v_src11, v_src11, v_dst11);
+                v_dst20 = v_fma(v_src20, v_src20, v_dst20);
+                v_dst21 = v_fma(v_src21, v_src21, v_dst21);
+
+                v_store_interleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
+                v_store_interleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
             }
         }
     }
@@ -1745,7 +1721,7 @@ void accSqr_simd_(const double* src, double* dst, const uchar* mask, int len, in
 {
     int x = 0;
 #if CV_SIMD_64F
-    const int cVectorWidth = v_float32::nlanes;
+    const int cVectorWidth = v_float64::nlanes * 2;
     const int step = v_float64::nlanes;
 
     if (!mask)
@@ -1765,11 +1741,8 @@ void accSqr_simd_(const double* src, double* dst, const uchar* mask, int len, in
         {
             v_float64 v_src0 = vx_load(src + x);
             v_float64 v_src1 = vx_load(src + x + step);
-            v_src0 = v_src0 * v_src0;
-            v_src1 = v_src1 * v_src1;
-            // todo: try fma
-            v_store(dst + x, vx_load(dst + x) + v_src0);
-            v_store(dst + x + step, vx_load(dst + x + step) + v_src1);
+            v_store(dst + x, v_fma(v_src0, v_src0, vx_load(dst + x)));
+            v_store(dst + x + step, v_fma(v_src1, v_src1, vx_load(dst + x + step)));
         }
         #endif // CV_AVX && !CV_AVX2
     }
@@ -1789,11 +1762,8 @@ void accSqr_simd_(const double* src, double* dst, const uchar* mask, int len, in
                 v_float64 v_src1 = vx_load(src + x + step);
                 v_src0 = v_src0 & v_mask0;
                 v_src1 = v_src1 & v_mask1;
-                v_src0 = v_src0 * v_src0;
-                v_src1 = v_src1 * v_src1;
-                // todo: try fma
-                v_store(dst + x, vx_load(dst + x) + v_src0);
-                v_store(dst + x + step, vx_load(dst + x + step) + v_src1);
+                v_store(dst + x, v_fma(v_src0, v_src0, vx_load(dst + x)));
+                v_store(dst + x + step, v_fma(v_src1, v_src1, vx_load(dst + x + step)));
             }
         }
         else if (cn == 3)
@@ -1815,19 +1785,20 @@ void accSqr_simd_(const double* src, double* dst, const uchar* mask, int len, in
                 v_src11 = v_src11 & v_mask1;
                 v_src20 = v_src20 & v_mask0;
                 v_src21 = v_src21 & v_mask1;
-                v_src00 = v_src00 * v_src00;
-                v_src01 = v_src01 * v_src01;
-                v_src10 = v_src10 * v_src10;
-                v_src11 = v_src11 * v_src11;
-                v_src20 = v_src20 * v_src20;
-                v_src21 = v_src21 * v_src21;
 
                 v_float64 v_dst00, v_dst01, v_dst10, v_dst11, v_dst20, v_dst21;
                 v_load_deinterleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
                 v_load_deinterleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
-                // todo: try fma
-                v_store_interleave(dst + x * cn, v_dst00 + v_src00, v_dst10 + v_src10, v_dst20 + v_src20);
-                v_store_interleave(dst + (x + step) * cn, v_dst01 + v_src01, v_dst11 + v_src11, v_dst21 + v_src21);
+
+                v_dst00 = v_fma(v_src00, v_src00, v_dst00);
+                v_dst01 = v_fma(v_src01, v_src01, v_dst01);
+                v_dst10 = v_fma(v_src10, v_src10, v_dst10);
+                v_dst11 = v_fma(v_src11, v_src11, v_dst11);
+                v_dst20 = v_fma(v_src20, v_src20, v_dst20);
+                v_dst21 = v_fma(v_src21, v_src21, v_dst21);
+
+                v_store_interleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
+                v_store_interleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
             }
         }
     }
@@ -1973,11 +1944,8 @@ void accProd_simd_(const ushort* src1, const ushort* src2, float* dst, const uch
             v_float32 v_2float0 = v_cvt_f32(v_reinterpret_as_s32(v_2src0));
             v_float32 v_2float1 = v_cvt_f32(v_reinterpret_as_s32(v_2src1));
 
-            v_float32 v_src0 = v_1float0 * v_2float0;
-            v_float32 v_src1 = v_1float1 * v_2float1;
-
-            v_store(dst + x, vx_load(dst + x) + v_src0);
-            v_store(dst + x + step, vx_load(dst + x + step) + v_src1);
+            v_store(dst + x, v_fma(v_1float0, v_2float0, vx_load(dst + x)));
+            v_store(dst + x + step, v_fma(v_1float1, v_2float1, vx_load(dst + x + step)));
         }
     }
     else
@@ -2002,11 +1970,8 @@ void accProd_simd_(const ushort* src1, const ushort* src2, float* dst, const uch
                 v_float32 v_2float0 = v_cvt_f32(v_reinterpret_as_s32(v_2src0));
                 v_float32 v_2float1 = v_cvt_f32(v_reinterpret_as_s32(v_2src1));
 
-                v_float32 v_src0 = v_1float0 * v_2float0;
-                v_float32 v_src1 = v_1float1 * v_2float1;
-
-                v_store(dst + x, vx_load(dst + x) + v_src0);
-                v_store(dst + x + step, vx_load(dst + x + step) + v_src1);
+                v_store(dst + x, v_fma(v_1float0, v_2float0, vx_load(dst + x)));
+                v_store(dst + x + step, v_fma(v_1float1, v_2float1, vx_load(dst + x + step)));
             }
         }
         else if (cn == 3)
@@ -2047,19 +2012,19 @@ void accProd_simd_(const ushort* src1, const ushort* src2, float* dst, const uch
                 v_float32 v_2float20 = v_cvt_f32(v_reinterpret_as_s32(v_2src20));
                 v_float32 v_2float21 = v_cvt_f32(v_reinterpret_as_s32(v_2src21));
 
-                v_float32 v_src00 = v_1float00 * v_2float00;
-                v_float32 v_src01 = v_1float01 * v_2float01;
-                v_float32 v_src10 = v_1float10 * v_2float10;
-                v_float32 v_src11 = v_1float11 * v_2float11;
-                v_float32 v_src20 = v_1float20 * v_2float20;
-                v_float32 v_src21 = v_1float21 * v_2float21;
-
                 v_float32 v_dst00, v_dst01, v_dst10, v_dst11, v_dst20, v_dst21;
                 v_load_deinterleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
                 v_load_deinterleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
 
-                v_store_interleave(dst + x * cn, v_dst00 + v_src00, v_dst10 + v_src10, v_dst20 + v_src20);
-                v_store_interleave(dst + (x + step) * cn, v_dst01 + v_src01, v_dst11 + v_src11, v_dst21 + v_src21);
+                v_dst00 = v_fma(v_1float00, v_2float00, v_dst00);
+                v_dst01 = v_fma(v_1float01, v_2float01, v_dst01);
+                v_dst10 = v_fma(v_1float10, v_2float10, v_dst10);
+                v_dst11 = v_fma(v_1float11, v_2float11, v_dst11);
+                v_dst20 = v_fma(v_1float20, v_2float20, v_dst20);
+                v_dst21 = v_fma(v_1float21, v_2float21, v_dst21);
+
+                v_store_interleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
+                v_store_interleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
             }
         }
     }
@@ -2090,8 +2055,8 @@ void accProd_simd_(const float* src1, const float* src2, float* dst, const uchar
         #else
         for (; x <= size - cVectorWidth; x += cVectorWidth)
         {
-            v_store(dst + x, vx_load(dst + x) + vx_load(src1 + x) * vx_load(src2 + x));
-            v_store(dst + x + step, vx_load(dst + x + step) + vx_load(src1 + x + step) * vx_load(src2 + x + step));
+            v_store(dst + x, v_fma(vx_load(src1 + x), vx_load(src2 + x), vx_load(dst + x)));
+            v_store(dst + x + step, v_fma(vx_load(src1 + x + step), vx_load(src2 + x + step), vx_load(dst + x + step)));
         }
         #endif // CV_AVX && !CV_AVX2
     }
@@ -2146,7 +2111,7 @@ void accProd_simd_(const uchar* src1, const uchar* src2, double* dst, const ucha
 #if CV_SIMD_64F
     const int cVectorWidth = v_uint16::nlanes;
     const int step = v_float64::nlanes;
-    // todo: try fma
+
     if (!mask)
     {
         int size = len * cn;
@@ -2164,20 +2129,15 @@ void accProd_simd_(const uchar* src1, const uchar* src2, double* dst, const ucha
             v_int32 v_2int0 = v_reinterpret_as_s32(v_2int_0);
             v_int32 v_2int1 = v_reinterpret_as_s32(v_2int_1);
 
-            v_float64 v_src0 = v_cvt_f64(v_1int0) * v_cvt_f64(v_2int0);
-            v_float64 v_src1 = v_cvt_f64_high(v_1int0) * v_cvt_f64_high(v_2int0);
-            v_float64 v_src2 = v_cvt_f64(v_1int1) * v_cvt_f64(v_2int1);
-            v_float64 v_src3 = v_cvt_f64_high(v_1int1) * v_cvt_f64_high(v_2int1);
-
             v_float64 v_dst0 = vx_load(dst + x);
             v_float64 v_dst1 = vx_load(dst + x + step);
             v_float64 v_dst2 = vx_load(dst + x + step * 2);
             v_float64 v_dst3 = vx_load(dst + x + step * 3);
 
-            v_dst0 += v_src0;
-            v_dst1 += v_src1;
-            v_dst2 += v_src2;
-            v_dst3 += v_src3;
+            v_dst0 = v_fma(v_cvt_f64(v_1int0), v_cvt_f64(v_2int0), v_dst0);
+            v_dst1 = v_fma(v_cvt_f64_high(v_1int0), v_cvt_f64_high(v_2int0), v_dst1);
+            v_dst2 = v_fma(v_cvt_f64(v_1int1), v_cvt_f64(v_2int1), v_dst2);
+            v_dst3 = v_fma(v_cvt_f64_high(v_1int1), v_cvt_f64_high(v_2int1), v_dst3);
 
             v_store(dst + x, v_dst0);
             v_store(dst + x + step, v_dst1);
@@ -2206,20 +2166,15 @@ void accProd_simd_(const uchar* src1, const uchar* src2, double* dst, const ucha
                 v_int32 v_2int0 = v_reinterpret_as_s32(v_2int_0);
                 v_int32 v_2int1 = v_reinterpret_as_s32(v_2int_1);
 
-                v_float64 v_src0 = v_cvt_f64(v_1int0) * v_cvt_f64(v_2int0);
-                v_float64 v_src1 = v_cvt_f64_high(v_1int0) * v_cvt_f64_high(v_2int0);
-                v_float64 v_src2 = v_cvt_f64(v_1int1) * v_cvt_f64(v_2int1);
-                v_float64 v_src3 = v_cvt_f64_high(v_1int1) * v_cvt_f64_high(v_2int1);
-
                 v_float64 v_dst0 = vx_load(dst + x);
                 v_float64 v_dst1 = vx_load(dst + x + step);
                 v_float64 v_dst2 = vx_load(dst + x + step * 2);
                 v_float64 v_dst3 = vx_load(dst + x + step * 3);
 
-                v_dst0 += v_src0;
-                v_dst1 += v_src1;
-                v_dst2 += v_src2;
-                v_dst3 += v_src3;
+                v_dst0 = v_fma(v_cvt_f64(v_1int0), v_cvt_f64(v_2int0), v_dst0);
+                v_dst1 = v_fma(v_cvt_f64_high(v_1int0), v_cvt_f64_high(v_2int0), v_dst1);
+                v_dst2 = v_fma(v_cvt_f64(v_1int1), v_cvt_f64(v_2int1), v_dst2);
+                v_dst3 = v_fma(v_cvt_f64_high(v_1int1), v_cvt_f64_high(v_2int1), v_dst3);
 
                 v_store(dst + x, v_dst0);
                 v_store(dst + x + step, v_dst1);
@@ -2260,29 +2215,29 @@ void accProd_simd_(const uchar* src1, const uchar* src2, double* dst, const ucha
                 v_expand(v_2int1, v_2int10, v_2int11);
                 v_expand(v_2int2, v_2int20, v_2int21);
 
-                v_float64 v_src00 = v_cvt_f64(v_reinterpret_as_s32(v_1int00)) * v_cvt_f64(v_reinterpret_as_s32(v_2int00));
-                v_float64 v_src01 = v_cvt_f64_high(v_reinterpret_as_s32(v_1int00)) * v_cvt_f64_high(v_reinterpret_as_s32(v_2int00));
-                v_float64 v_src02 = v_cvt_f64(v_reinterpret_as_s32(v_1int01)) * v_cvt_f64(v_reinterpret_as_s32(v_2int01));
-                v_float64 v_src03 = v_cvt_f64_high(v_reinterpret_as_s32(v_1int01)) * v_cvt_f64_high(v_reinterpret_as_s32(v_2int01));
-                v_float64 v_src10 = v_cvt_f64(v_reinterpret_as_s32(v_1int10)) * v_cvt_f64(v_reinterpret_as_s32(v_2int10));
-                v_float64 v_src11 = v_cvt_f64_high(v_reinterpret_as_s32(v_1int10)) * v_cvt_f64_high(v_reinterpret_as_s32(v_2int10));
-                v_float64 v_src12 = v_cvt_f64(v_reinterpret_as_s32(v_1int11)) * v_cvt_f64(v_reinterpret_as_s32(v_2int11));
-                v_float64 v_src13 = v_cvt_f64_high(v_reinterpret_as_s32(v_1int11)) * v_cvt_f64_high(v_reinterpret_as_s32(v_2int11));
-                v_float64 v_src20 = v_cvt_f64(v_reinterpret_as_s32(v_1int20)) * v_cvt_f64(v_reinterpret_as_s32(v_2int20));
-                v_float64 v_src21 = v_cvt_f64_high(v_reinterpret_as_s32(v_1int20)) * v_cvt_f64_high(v_reinterpret_as_s32(v_2int20));
-                v_float64 v_src22 = v_cvt_f64(v_reinterpret_as_s32(v_1int21)) * v_cvt_f64(v_reinterpret_as_s32(v_2int21));
-                v_float64 v_src23 = v_cvt_f64_high(v_reinterpret_as_s32(v_1int21)) * v_cvt_f64_high(v_reinterpret_as_s32(v_2int21));
-
                 v_float64 v_dst00, v_dst01, v_dst02, v_dst03, v_dst10, v_dst11, v_dst12, v_dst13, v_dst20, v_dst21, v_dst22, v_dst23;
                 v_load_deinterleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
                 v_load_deinterleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
                 v_load_deinterleave(dst + (x + step * 2) * cn, v_dst02, v_dst12, v_dst22);
                 v_load_deinterleave(dst + (x + step * 3) * cn, v_dst03, v_dst13, v_dst23);
 
-                v_store_interleave(dst + x * cn, v_dst00 + v_src00, v_dst10 + v_src10, v_dst20 + v_src20);
-                v_store_interleave(dst + (x + step) * cn, v_dst01 + v_src01, v_dst11 + v_src11, v_dst21 + v_src21);
-                v_store_interleave(dst + (x + step * 2) * cn, v_dst02 + v_src02, v_dst12 + v_src12, v_dst22 + v_src22);
-                v_store_interleave(dst + (x + step * 3) * cn, v_dst03 + v_src03, v_dst13 + v_src13, v_dst23 + v_src23);
+                v_dst00 = v_fma(v_cvt_f64(v_reinterpret_as_s32(v_1int00)), v_cvt_f64(v_reinterpret_as_s32(v_2int00)), v_dst00);
+                v_dst01 = v_fma(v_cvt_f64_high(v_reinterpret_as_s32(v_1int00)), v_cvt_f64_high(v_reinterpret_as_s32(v_2int00)), v_dst01);
+                v_dst02 = v_fma(v_cvt_f64(v_reinterpret_as_s32(v_1int01)), v_cvt_f64(v_reinterpret_as_s32(v_2int01)), v_dst02);
+                v_dst03 = v_fma(v_cvt_f64_high(v_reinterpret_as_s32(v_1int01)), v_cvt_f64_high(v_reinterpret_as_s32(v_2int01)), v_dst03);
+                v_dst10 = v_fma(v_cvt_f64(v_reinterpret_as_s32(v_1int10)), v_cvt_f64(v_reinterpret_as_s32(v_2int10)), v_dst10);
+                v_dst11 = v_fma(v_cvt_f64_high(v_reinterpret_as_s32(v_1int10)), v_cvt_f64_high(v_reinterpret_as_s32(v_2int10)), v_dst11);
+                v_dst12 = v_fma(v_cvt_f64(v_reinterpret_as_s32(v_1int11)), v_cvt_f64(v_reinterpret_as_s32(v_2int11)), v_dst12);
+                v_dst13 = v_fma(v_cvt_f64_high(v_reinterpret_as_s32(v_1int11)), v_cvt_f64_high(v_reinterpret_as_s32(v_2int11)), v_dst13);
+                v_dst20 = v_fma(v_cvt_f64(v_reinterpret_as_s32(v_1int20)), v_cvt_f64(v_reinterpret_as_s32(v_2int20)), v_dst20);
+                v_dst21 = v_fma(v_cvt_f64_high(v_reinterpret_as_s32(v_1int20)), v_cvt_f64_high(v_reinterpret_as_s32(v_2int20)), v_dst21);
+                v_dst22 = v_fma(v_cvt_f64(v_reinterpret_as_s32(v_1int21)), v_cvt_f64(v_reinterpret_as_s32(v_2int21)), v_dst22);
+                v_dst23 = v_fma(v_cvt_f64_high(v_reinterpret_as_s32(v_1int21)), v_cvt_f64_high(v_reinterpret_as_s32(v_2int21)), v_dst23);
+
+                v_store_interleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
+                v_store_interleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
+                v_store_interleave(dst + (x + step * 2) * cn, v_dst02, v_dst12, v_dst22);
+                v_store_interleave(dst + (x + step * 3) * cn, v_dst03, v_dst13, v_dst23);
             }
         }
     }
@@ -2296,7 +2251,7 @@ void accProd_simd_(const ushort* src1, const ushort* src2, double* dst, const uc
 #if CV_SIMD_64F
     const int cVectorWidth = v_uint16::nlanes;
     const int step = v_float64::nlanes;
-    // todo: try fma
+
     if (!mask)
     {
         int size = len * cn;
@@ -2314,20 +2269,16 @@ void accProd_simd_(const ushort* src1, const ushort* src2, double* dst, const uc
             v_int32 v_2int0 = v_reinterpret_as_s32(v_2int_0);
             v_int32 v_2int1 = v_reinterpret_as_s32(v_2int_1);
 
-            v_float64 v_src0 = v_cvt_f64(v_1int0) * v_cvt_f64(v_2int0);
-            v_float64 v_src1 = v_cvt_f64_high(v_1int0) * v_cvt_f64_high(v_2int0);
-            v_float64 v_src2 = v_cvt_f64(v_1int1) * v_cvt_f64(v_2int1);
-            v_float64 v_src3 = v_cvt_f64_high(v_1int1) * v_cvt_f64_high(v_2int1);
-
             v_float64 v_dst0 = vx_load(dst + x);
             v_float64 v_dst1 = vx_load(dst + x + step);
             v_float64 v_dst2 = vx_load(dst + x + step * 2);
             v_float64 v_dst3 = vx_load(dst + x + step * 3);
 
-            v_dst0 = v_dst0 + v_src0;
-            v_dst1 = v_dst1 + v_src1;
-            v_dst2 = v_dst2 + v_src2;
-            v_dst3 = v_dst3 + v_src3;
+            v_dst0 = v_fma(v_cvt_f64(v_1int0), v_cvt_f64(v_2int0), v_dst0);
+            v_dst1 = v_fma(v_cvt_f64_high(v_1int0), v_cvt_f64_high(v_2int0), v_dst1);
+            v_dst2 = v_fma(v_cvt_f64(v_1int1), v_cvt_f64(v_2int1), v_dst2);
+            v_dst3 = v_fma(v_cvt_f64_high(v_1int1), v_cvt_f64_high(v_2int1), v_dst3);
+
             v_store(dst + x, v_dst0);
             v_store(dst + x + step, v_dst1);
             v_store(dst + x + step * 2, v_dst2);
@@ -2357,20 +2308,16 @@ void accProd_simd_(const ushort* src1, const ushort* src2, double* dst, const uc
                 v_int32 v_2int0 = v_reinterpret_as_s32(v_2int_0);
                 v_int32 v_2int1 = v_reinterpret_as_s32(v_2int_1);
 
-                v_float64 v_src0 = v_cvt_f64(v_1int0) * v_cvt_f64(v_2int0);
-                v_float64 v_src1 = v_cvt_f64_high(v_1int0) * v_cvt_f64_high(v_2int0);
-                v_float64 v_src2 = v_cvt_f64(v_1int1) * v_cvt_f64(v_2int1);
-                v_float64 v_src3 = v_cvt_f64_high(v_1int1) * v_cvt_f64_high(v_2int1);
-
                 v_float64 v_dst0 = vx_load(dst + x);
                 v_float64 v_dst1 = vx_load(dst + x + step);
                 v_float64 v_dst2 = vx_load(dst + x + step * 2);
                 v_float64 v_dst3 = vx_load(dst + x + step * 3);
 
-                v_dst0 = v_dst0 + v_src0;
-                v_dst1 = v_dst1 + v_src1;
-                v_dst2 = v_dst2 + v_src2;
-                v_dst3 = v_dst3 + v_src3;
+                v_dst0 = v_fma(v_cvt_f64(v_1int0), v_cvt_f64(v_2int0), v_dst0);
+                v_dst1 = v_fma(v_cvt_f64_high(v_1int0), v_cvt_f64_high(v_2int0), v_dst1);
+                v_dst2 = v_fma(v_cvt_f64(v_1int1), v_cvt_f64(v_2int1), v_dst2);
+                v_dst3 = v_fma(v_cvt_f64_high(v_1int1), v_cvt_f64_high(v_2int1), v_dst3);
+
                 v_store(dst + x, v_dst0);
                 v_store(dst + x + step, v_dst1);
                 v_store(dst + x + step * 2, v_dst2);
@@ -2416,19 +2363,6 @@ void accProd_simd_(const ushort* src1, const ushort* src2, double* dst, const uc
                 v_int32 v_2int20 = v_reinterpret_as_s32(v_2int_20);
                 v_int32 v_2int21 = v_reinterpret_as_s32(v_2int_21);
 
-                v_float64 v_src00 = v_cvt_f64(v_1int00) * v_cvt_f64(v_2int00);
-                v_float64 v_src01 = v_cvt_f64_high(v_1int00) * v_cvt_f64_high(v_2int00);
-                v_float64 v_src02 = v_cvt_f64(v_1int01) * v_cvt_f64(v_2int01);
-                v_float64 v_src03 = v_cvt_f64_high(v_1int01) * v_cvt_f64_high(v_2int01);
-                v_float64 v_src10 = v_cvt_f64(v_1int10) * v_cvt_f64(v_2int10);
-                v_float64 v_src11 = v_cvt_f64_high(v_1int10) * v_cvt_f64_high(v_2int10);
-                v_float64 v_src12 = v_cvt_f64(v_1int11) * v_cvt_f64(v_2int11);
-                v_float64 v_src13 = v_cvt_f64_high(v_1int11) * v_cvt_f64_high(v_2int11);
-                v_float64 v_src20 = v_cvt_f64(v_1int20) * v_cvt_f64(v_2int20);
-                v_float64 v_src21 = v_cvt_f64_high(v_1int20) * v_cvt_f64_high(v_2int20);
-                v_float64 v_src22 = v_cvt_f64(v_1int21) * v_cvt_f64(v_2int21);
-                v_float64 v_src23 = v_cvt_f64_high(v_1int21) * v_cvt_f64_high(v_2int21);
-
                 v_float64 v_dst00, v_dst01, v_dst02, v_dst03;
                 v_float64 v_dst10, v_dst11, v_dst12, v_dst13;
                 v_float64 v_dst20, v_dst21, v_dst22, v_dst23;
@@ -2437,10 +2371,23 @@ void accProd_simd_(const ushort* src1, const ushort* src2, double* dst, const uc
                 v_load_deinterleave(dst + (x + step * 2) * cn, v_dst02, v_dst12, v_dst22);
                 v_load_deinterleave(dst + (x + step * 3) * cn, v_dst03, v_dst13, v_dst23);
 
-                v_store_interleave(dst + x * cn, v_dst00 + v_src00, v_dst10 + v_src10, v_dst20 + v_src20);
-                v_store_interleave(dst + (x + step) * cn, v_dst01 + v_src01, v_dst11 + v_src11, v_dst21 + v_src21);
-                v_store_interleave(dst + (x + step * 2) * cn, v_dst02 + v_src02, v_dst12 + v_src12, v_dst22 + v_src22);
-                v_store_interleave(dst + (x + step * 3) * cn, v_dst03 + v_src03, v_dst13 + v_src13, v_dst23 + v_src23);
+                v_dst00 = v_fma(v_cvt_f64(v_1int00), v_cvt_f64(v_2int00), v_dst00);
+                v_dst01 = v_fma(v_cvt_f64_high(v_1int00), v_cvt_f64_high(v_2int00), v_dst01);
+                v_dst02 = v_fma(v_cvt_f64(v_1int01), v_cvt_f64(v_2int01), v_dst02);
+                v_dst03 = v_fma(v_cvt_f64_high(v_1int01), v_cvt_f64_high(v_2int01), v_dst03);
+                v_dst10 = v_fma(v_cvt_f64(v_1int10), v_cvt_f64(v_2int10), v_dst10);
+                v_dst11 = v_fma(v_cvt_f64_high(v_1int10), v_cvt_f64_high(v_2int10), v_dst11);
+                v_dst12 = v_fma(v_cvt_f64(v_1int11), v_cvt_f64(v_2int11), v_dst12);
+                v_dst13 = v_fma(v_cvt_f64_high(v_1int11), v_cvt_f64_high(v_2int11), v_dst13);
+                v_dst20 = v_fma(v_cvt_f64(v_1int20), v_cvt_f64(v_2int20), v_dst20);
+                v_dst21 = v_fma(v_cvt_f64_high(v_1int20), v_cvt_f64_high(v_2int20), v_dst21);
+                v_dst22 = v_fma(v_cvt_f64(v_1int21), v_cvt_f64(v_2int21), v_dst22);
+                v_dst23 = v_fma(v_cvt_f64_high(v_1int21), v_cvt_f64_high(v_2int21), v_dst23);
+
+                v_store_interleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
+                v_store_interleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
+                v_store_interleave(dst + (x + step * 2) * cn, v_dst02, v_dst12, v_dst22);
+                v_store_interleave(dst + (x + step * 3) * cn, v_dst03, v_dst13, v_dst23);
             }
         }
     }
@@ -2454,7 +2401,6 @@ void accProd_simd_(const float* src1, const float* src2, double* dst, const ucha
 #if CV_SIMD_64F
     const int cVectorWidth = v_float32::nlanes;
     const int step = v_float64::nlanes;
-    // todo: try fma
 
     if (!mask)
     {
@@ -2488,8 +2434,8 @@ void accProd_simd_(const float* src1, const float* src2, double* dst, const ucha
             v_float64 v_2src0 = v_cvt_f64(v_2src);
             v_float64 v_2src1 = v_cvt_f64_high(v_2src);
 
-            v_store(dst + x, vx_load(dst + x) + (v_1src0 * v_2src0));
-            v_store(dst + x + step, vx_load(dst + x + step) + (v_1src1 * v_2src1));
+            v_store(dst + x, v_fma(v_1src0, v_2src0, vx_load(dst + x)));
+            v_store(dst + x + step, v_fma(v_1src1, v_2src1, vx_load(dst + x + step)));
         }
         #endif // CV_AVX && !CV_AVX2
     }
@@ -2512,8 +2458,8 @@ void accProd_simd_(const float* src1, const float* src2, double* dst, const ucha
                 v_float64 v_2src0 = v_cvt_f64(v_2src);
                 v_float64 v_2src1 = v_cvt_f64_high(v_2src);
 
-                v_store(dst + x, vx_load(dst + x) + (v_1src0 * v_2src0));
-                v_store(dst + x + step, vx_load(dst + x + step) + (v_1src1 * v_2src1));
+                v_store(dst + x, v_fma(v_1src0, v_2src0, vx_load(dst + x)));
+                v_store(dst + x + step, v_fma(v_1src1, v_2src1, vx_load(dst + x + step)));
             }
         }
         else if (cn == 3)
@@ -2532,19 +2478,19 @@ void accProd_simd_(const float* src1, const float* src2, double* dst, const ucha
                 v_2src1 = v_2src1 & v_reinterpret_as_f32(v_mask);
                 v_2src2 = v_2src2 & v_reinterpret_as_f32(v_mask);
 
-                v_float64 v_src00 = v_cvt_f64(v_1src0) * v_cvt_f64(v_2src0);
-                v_float64 v_src01 = v_cvt_f64_high(v_1src0) * v_cvt_f64_high(v_2src0);
-                v_float64 v_src10 = v_cvt_f64(v_1src1) * v_cvt_f64(v_2src1);
-                v_float64 v_src11 = v_cvt_f64_high(v_1src1) * v_cvt_f64_high(v_2src1);
-                v_float64 v_src20 = v_cvt_f64(v_1src2) * v_cvt_f64(v_2src2);
-                v_float64 v_src21 = v_cvt_f64_high(v_1src2) * v_cvt_f64_high(v_2src2);
-
                 v_float64 v_dst00, v_dst01, v_dst10, v_dst11, v_dst20, v_dst21;
                 v_load_deinterleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
                 v_load_deinterleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
 
-                v_store_interleave(dst + x * cn, v_dst00 + v_src00, v_dst10 + v_src10, v_dst20 + v_src20);
-                v_store_interleave(dst + (x + step) * cn, v_dst01 + v_src01, v_dst11 + v_src11, v_dst21 + v_src21);
+                v_dst00 = v_fma(v_cvt_f64(v_1src0), v_cvt_f64(v_2src0), v_dst00);
+                v_dst01 = v_fma(v_cvt_f64_high(v_1src0), v_cvt_f64_high(v_2src0), v_dst01);
+                v_dst10 = v_fma(v_cvt_f64(v_1src1), v_cvt_f64(v_2src1), v_dst10);
+                v_dst11 = v_fma(v_cvt_f64_high(v_1src1), v_cvt_f64_high(v_2src1), v_dst11);
+                v_dst20 = v_fma(v_cvt_f64(v_1src2), v_cvt_f64(v_2src2), v_dst20);
+                v_dst21 = v_fma(v_cvt_f64_high(v_1src2), v_cvt_f64_high(v_2src2), v_dst21);
+
+                v_store_interleave(dst + x * cn, v_dst00, v_dst10, v_dst20);
+                v_store_interleave(dst + (x + step) * cn, v_dst01, v_dst11, v_dst21);
             }
         }
     }
@@ -2558,7 +2504,7 @@ void accProd_simd_(const double* src1, const double* src2, double* dst, const uc
 #if CV_SIMD_64F
     const int cVectorWidth = v_float64::nlanes * 2;
     const int step = v_float64::nlanes;
-    // todo: try fma
+
     if (!mask)
     {
         int size = len * cn;
@@ -2580,13 +2526,14 @@ void accProd_simd_(const double* src1, const double* src2, double* dst, const uc
             v_float64 v_src10 = vx_load(src2 + x);
             v_float64 v_src11 = vx_load(src2 + x + step);
 
-            v_store(dst + x, vx_load(dst + x) + (v_src00 * v_src10));
-            v_store(dst + x + step, vx_load(dst + x + step) + (v_src01 * v_src11));
+            v_store(dst + x, v_fma(v_src00, v_src10, vx_load(dst + x)));
+            v_store(dst + x + step, v_fma(v_src01, v_src11, vx_load(dst + x + step)));
         }
         #endif
     }
     else
     {
+        // todo: try fma
         v_uint64 v_0 = vx_setzero_u64();
         if (cn == 1)
         {
@@ -2652,7 +2599,6 @@ void accW_simd_(const uchar* src, float* dst, const uchar* mask, int len, int cn
     const v_float32 v_beta = vx_setall_f32((float)(1.0f - alpha));
     const int cVectorWidth = v_uint8::nlanes;
     const int step = v_float32::nlanes;
-    // todo: try fma
 
     if (!mask)
     {
@@ -2673,10 +2619,10 @@ void accW_simd_(const uchar* src, float* dst, const uchar* mask, int len, int cn
             v_float32 v_dst10 = vx_load(dst + x + step * 2);
             v_float32 v_dst11 = vx_load(dst + x + step * 3);
 
-            v_dst00 = (v_dst00 * v_beta) + (v_cvt_f32(v_reinterpret_as_s32(v_src00)) * v_alpha);
-            v_dst01 = (v_dst01 * v_beta) + (v_cvt_f32(v_reinterpret_as_s32(v_src01)) * v_alpha);
-            v_dst10 = (v_dst10 * v_beta) + (v_cvt_f32(v_reinterpret_as_s32(v_src10)) * v_alpha);
-            v_dst11 = (v_dst11 * v_beta) + (v_cvt_f32(v_reinterpret_as_s32(v_src11)) * v_alpha);
+            v_dst00 = v_fma(v_dst00, v_beta, v_cvt_f32(v_reinterpret_as_s32(v_src00)) * v_alpha);
+            v_dst01 = v_fma(v_dst01, v_beta, v_cvt_f32(v_reinterpret_as_s32(v_src01)) * v_alpha);
+            v_dst10 = v_fma(v_dst10, v_beta, v_cvt_f32(v_reinterpret_as_s32(v_src10)) * v_alpha);
+            v_dst11 = v_fma(v_dst11, v_beta, v_cvt_f32(v_reinterpret_as_s32(v_src11)) * v_alpha);
 
             v_store(dst + x, v_dst00);
             v_store(dst + x + step, v_dst01);
@@ -2696,7 +2642,6 @@ void accW_simd_(const ushort* src, float* dst, const uchar* mask, int len, int c
     const v_float32 v_beta = vx_setall_f32((float)(1.0f - alpha));
     const int cVectorWidth = v_uint16::nlanes;
     const int step = v_float32::nlanes;
-    // todo: try fma
 
     if (!mask)
     {
@@ -2707,16 +2652,13 @@ void accW_simd_(const ushort* src, float* dst, const uchar* mask, int len, int c
             v_uint32 v_int0, v_int1;
             v_expand(v_src, v_int0, v_int1);
 
-            v_float32 v_src0 = v_cvt_f32(v_reinterpret_as_s32(v_int0));
-            v_float32 v_src1 = v_cvt_f32(v_reinterpret_as_s32(v_int1));
-            v_src0 = v_src0 * v_alpha;
-            v_src1 = v_src1 * v_alpha;
+            v_float32 v_dst0 = vx_load(dst + x);
+            v_float32 v_dst1 = vx_load(dst + x + step);
+            v_dst0 = v_fma(v_dst0, v_beta, v_cvt_f32(v_reinterpret_as_s32(v_int0)) * v_alpha);
+            v_dst1 = v_fma(v_dst1, v_beta, v_cvt_f32(v_reinterpret_as_s32(v_int1)) * v_alpha);
 
-            v_float32 v_dst0 = vx_load(dst + x) * v_beta;
-            v_float32 v_dst1 = vx_load(dst + x + step) * v_beta;
-
-            v_store(dst + x, v_dst0 + v_src0);
-            v_store(dst + x + step, v_dst1 + v_src1);
+            v_store(dst + x, v_dst0);
+            v_store(dst + x + step, v_dst1);
         }
     }
 #endif // CV_SIMD
@@ -2745,15 +2687,20 @@ void accW_simd_(const float* src, float* dst, const uchar* mask, int len, int cn
     const v_float32 v_beta = vx_setall_f32((float)(1.0f - alpha));
     const int cVectorWidth = v_uint16::nlanes;
     const int step = v_float32::nlanes;
-    // todo: try fma
 
     if (!mask)
     {
         int size = len * cn;
         for (; x <= size - cVectorWidth; x += cVectorWidth)
         {
-            v_store(dst + x, ((vx_load(dst + x) * v_beta) + (vx_load(src + x) * v_alpha)));
-            v_store(dst + x + step, ((vx_load(dst + x + step) * v_beta) + (vx_load(src + x + step) * v_alpha)));
+            v_float32 v_dst0 = vx_load(dst + x);
+            v_float32 v_dst1 = vx_load(dst + x + step);
+
+            v_dst0 = v_fma(v_dst0, v_beta, vx_load(src + x) * v_alpha);
+            v_dst1 = v_fma(v_dst1, v_beta, vx_load(src + x + step) * v_alpha);
+
+            v_store(dst + x, v_dst0);
+            v_store(dst + x + step, v_dst1);
         }
     }
 #endif // CV_SIMD
@@ -2768,7 +2715,6 @@ void accW_simd_(const uchar* src, double* dst, const uchar* mask, int len, int c
     const v_float64 v_beta = vx_setall_f64(1.0f - alpha);
     const int cVectorWidth = v_uint16::nlanes;
     const int step = v_float64::nlanes;
-    // todo: try fma
 
     if (!mask)
     {
@@ -2793,10 +2739,10 @@ void accW_simd_(const uchar* src, double* dst, const uchar* mask, int len, int c
             v_float64 v_dst2 = vx_load(dst + x + step * 2);
             v_float64 v_dst3 = vx_load(dst + x + step * 3);
 
-            v_dst0 = (v_dst0 * v_beta) + (v_src0 * v_alpha);
-            v_dst1 = (v_dst1 * v_beta) + (v_src1 * v_alpha);
-            v_dst2 = (v_dst2 * v_beta) + (v_src2 * v_alpha);
-            v_dst3 = (v_dst3 * v_beta) + (v_src3 * v_alpha);
+            v_dst0 = v_fma(v_dst0, v_beta, v_src0 * v_alpha);
+            v_dst1 = v_fma(v_dst1, v_beta, v_src1 * v_alpha);
+            v_dst2 = v_fma(v_dst2, v_beta, v_src2 * v_alpha);
+            v_dst3 = v_fma(v_dst3, v_beta, v_src3 * v_alpha);
 
             v_store(dst + x, v_dst0);
             v_store(dst + x + step, v_dst1);
@@ -2816,7 +2762,6 @@ void accW_simd_(const ushort* src, double* dst, const uchar* mask, int len, int 
     const v_float64 v_beta = vx_setall_f64(1.0f - alpha);
     const int cVectorWidth = v_uint16::nlanes;
     const int step = v_float64::nlanes;
-    // todo: try fma
 
     if (!mask)
     {
@@ -2840,10 +2785,10 @@ void accW_simd_(const ushort* src, double* dst, const uchar* mask, int len, int 
             v_float64 v_dst10 = vx_load(dst + x + step * 2);
             v_float64 v_dst11 = vx_load(dst + x + step * 3);
 
-            v_dst00 = (v_dst00 * v_beta) + (v_src00 * v_alpha);
-            v_dst01 = (v_dst01 * v_beta) + (v_src01 * v_alpha);
-            v_dst10 = (v_dst10 * v_beta) + (v_src10 * v_alpha);
-            v_dst11 = (v_dst11 * v_beta) + (v_src11 * v_alpha);
+            v_dst00 = v_fma(v_dst00, v_beta, v_src00 * v_alpha);
+            v_dst01 = v_fma(v_dst01, v_beta, v_src01 * v_alpha);
+            v_dst10 = v_fma(v_dst10, v_beta, v_src10 * v_alpha);
+            v_dst11 = v_fma(v_dst11, v_beta, v_src11 * v_alpha);
 
             v_store(dst + x, v_dst00);
             v_store(dst + x + step, v_dst01);
@@ -2886,7 +2831,6 @@ void accW_simd_(const float* src, double* dst, const uchar* mask, int len, int c
     const v_float64 v_beta = vx_setall_f64(1.0f - alpha);
     const int cVectorWidth = v_float32::nlanes * 2;
     const int step = v_float64::nlanes;
-    // todo: try fma
 
     if (!mask)
     {
@@ -2900,10 +2844,20 @@ void accW_simd_(const float* src, double* dst, const uchar* mask, int len, int c
             v_float64 v_src10 = v_cvt_f64(v_src1);
             v_float64 v_src11 = v_cvt_f64_high(v_src1);
 
-            v_store(dst + x, ((vx_load(dst + x) * v_beta) + (v_src00 * v_alpha)));
-            v_store(dst + x + step, ((vx_load(dst + x + step) * v_beta) + (v_src01 * v_alpha)));
-            v_store(dst + x + step * 2, ((vx_load(dst + x + step * 2) * v_beta) + (v_src10 * v_alpha)));
-            v_store(dst + x + step * 3, ((vx_load(dst + x + step * 3) * v_beta) + (v_src11 * v_alpha)));
+            v_float64 v_dst00 = vx_load(dst + x);
+            v_float64 v_dst01 = vx_load(dst + x + step);
+            v_float64 v_dst10 = vx_load(dst + x + step * 2);
+            v_float64 v_dst11 = vx_load(dst + x + step * 3);
+
+            v_dst00 = v_fma(v_dst00, v_beta, v_src00 * v_alpha);
+            v_dst01 = v_fma(v_dst01, v_beta, v_src01 * v_alpha);
+            v_dst10 = v_fma(v_dst10, v_beta, v_src10 * v_alpha);
+            v_dst11 = v_fma(v_dst11, v_beta, v_src11 * v_alpha);
+
+            v_store(dst + x, v_dst00);
+            v_store(dst + x + step, v_dst01);
+            v_store(dst + x + step * 2, v_dst10);
+            v_store(dst + x + step * 3, v_dst11);
         }
     }
 #endif // CV_SIMD_64F
@@ -2935,7 +2889,6 @@ void accW_simd_(const double* src, double* dst, const uchar* mask, int len, int 
     const v_float64 v_beta = vx_setall_f64(1.0f - alpha);
     const int cVectorWidth = v_float64::nlanes * 2;
     const int step = v_float64::nlanes;
-    // todo: try fma
 
     if (!mask)
     {
@@ -2945,8 +2898,14 @@ void accW_simd_(const double* src, double* dst, const uchar* mask, int len, int 
             v_float64 v_src0 = vx_load(src + x);
             v_float64 v_src1 = vx_load(src + x + step);
 
-            v_store(dst + x, ((vx_load(dst + x) * v_beta) + (v_src0 * v_alpha)));
-            v_store(dst + x + step, ((vx_load(dst + x + step) * v_beta) + (v_src1 * v_alpha)));
+            v_float64 v_dst0 = vx_load(dst + x);
+            v_float64 v_dst1 = vx_load(dst + x + step);
+
+            v_dst0 = v_fma(v_dst0, v_beta, v_src0 * v_alpha);
+            v_dst1 = v_fma(v_dst1, v_beta, v_src1 * v_alpha);
+
+            v_store(dst + x, v_dst0);
+            v_store(dst + x + step, v_dst1);
         }
     }
 #endif // CV_SIMD_64F
