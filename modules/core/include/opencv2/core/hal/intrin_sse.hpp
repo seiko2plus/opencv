@@ -634,6 +634,35 @@ void v_rshr_pack_store(int* ptr, const v_int64x2& a)
     _mm_storel_epi64((__m128i*)ptr, a2);
 }
 
+// pack boolean
+inline v_uint8x16 v_pack_b(const v_uint16x8& a, const v_uint16x8& b)
+{
+    __m128i ab = _mm_packs_epi16(a.val, b.val);
+    return v_uint8x16(ab);
+}
+
+inline v_uint8x16 v_pack_b(const v_uint32x4& a, const v_uint32x4& b,
+                           const v_uint32x4& c, const v_uint32x4& d)
+{
+    __m128i ab = _mm_packs_epi32(a.val, b.val);
+    __m128i cd = _mm_packs_epi32(c.val, d.val);
+    return v_uint8x16(_mm_packs_epi16(ab, cd));
+}
+
+inline v_uint8x16 v_pack_b(const v_uint64x2& a, const v_uint64x2& b, const v_uint64x2& c,
+                           const v_uint64x2& d, const v_uint64x2& e, const v_uint64x2& f,
+                           const v_uint64x2& g, const v_uint64x2& h)
+{
+    __m128i ab = _mm_packs_epi32(a.val, b.val);
+    __m128i cd = _mm_packs_epi32(c.val, d.val);
+    __m128i ef = _mm_packs_epi32(e.val, f.val);
+    __m128i gh = _mm_packs_epi32(g.val, h.val);
+
+    __m128i abcd = _mm_packs_epi32(ab, cd);
+    __m128i efgh = _mm_packs_epi32(ef, gh);
+    return v_uint8x16(_mm_packs_epi16(abcd, efgh));
+}
+
 inline v_float32x4 v_matmul(const v_float32x4& v, const v_float32x4& m0,
                             const v_float32x4& m1, const v_float32x4& m2,
                             const v_float32x4& m3)

@@ -383,6 +383,35 @@ OPENCV_HAL_IMPL_VSX_PACK(v_uint16x8, ushort, v_int32x4, unsigned int, int,
 //OPENCV_HAL_IMPL_VSX_PACK(v_uint32x4, uint, v_int64x2, unsigned long long, long long,
 //                         vec_sra, vec_packsu, vec_add, pack_u)
 
+// pack boolean
+inline v_uint8x16 v_pack_b(const v_uint16x8& a, const v_uint16x8& b)
+{
+    vec_uchar16 ab = vec_pack(a.val, b.val);
+    return v_uint8x16(ab);
+}
+
+inline v_uint8x16 v_pack_b(const v_uint32x4& a, const v_uint32x4& b,
+                           const v_uint32x4& c, const v_uint32x4& d)
+{
+    vec_ushort8 ab = vec_pack(a.val, b.val);
+    vec_ushort8 cd = vec_pack(c.val, d.val);
+    return v_uint8x16(vec_pack(ab, cd));
+}
+
+inline v_uint8x16 v_pack_b(const v_uint64x2& a, const v_uint64x2& b, const v_uint64x2& c,
+                           const v_uint64x2& d, const v_uint64x2& e, const v_uint64x2& f,
+                           const v_uint64x2& g, const v_uint64x2& h)
+{
+    vec_uint4 ab = vec_pack(a.val, b.val);
+    vec_uint4 cd = vec_pack(c.val, d.val);
+    vec_uint4 ef = vec_pack(e.val, f.val);
+    vec_uint4 gh = vec_pack(g.val, h.val);
+
+    vec_ushort8 abcd = vec_pack(ab, cd);
+    vec_ushort8 efgh = vec_pack(ef, gh);
+    return v_uint8x16(vec_pack(abcd, efgh));
+}
+
 /* Recombine */
 template <typename _Tpvec>
 inline void v_zip(const _Tpvec& a0, const _Tpvec& a1, _Tpvec& b0, _Tpvec& b1)
