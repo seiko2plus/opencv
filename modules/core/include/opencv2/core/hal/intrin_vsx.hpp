@@ -894,6 +894,9 @@ inline v_int32x4 v_round(const v_float32x4& a)
 inline v_int32x4 v_round(const v_float64x2& a)
 { return v_int32x4(vec_mergesqo(vec_ctso(vec_rint(a.val)), vec_int4_z)); }
 
+inline v_int32x4 v_round(const v_float64x2& a, const v_float64x2& b)
+{ return v_int32x4(vec_mergesqo(vec_ctso(vec_rint(a.val)), vec_ctso(vec_rint(b.val)))); }
+
 inline v_int32x4 v_floor(const v_float32x4& a)
 { return v_int32x4(vec_cts(vec_floor(a.val))); }
 

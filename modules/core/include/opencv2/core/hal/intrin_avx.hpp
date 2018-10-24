@@ -1310,6 +1310,12 @@ inline v_int32x8 v_round(const v_float32x8& a)
 inline v_int32x8 v_round(const v_float64x4& a)
 { return v_int32x8(_mm256_castsi128_si256(_mm256_cvtpd_epi32(a.val))); }
 
+inline v_int32x8 v_round(const v_float64x4& a, const v_float64x4& b)
+{
+    __m128i ai = _mm256_cvtpd_epi32(a.val), bi = _mm256_cvtpd_epi32(b.val);
+    return v_int32x8(_v256_combine(ai, bi));
+}
+
 inline v_int32x8 v_trunc(const v_float32x8& a)
 { return v_int32x8(_mm256_cvttps_epi32(a.val)); }
 

@@ -1661,6 +1661,12 @@ inline v_int32x4 v_trunc(const v_float32x4& a)
 inline v_int32x4 v_round(const v_float64x2& a)
 { return v_int32x4(_mm_cvtpd_epi32(a.val)); }
 
+inline v_int32x4 v_round(const v_float64x2& a, const v_float64x2& b)
+{
+    __m128i ai = _mm_cvtpd_epi32(a.val), bi = _mm_cvtpd_epi32(b.val);
+    return v_int32x4(_mm_unpacklo_epi64(ai, bi));
+}
+
 inline v_int32x4 v_floor(const v_float64x2& a)
 {
     __m128i a1 = _mm_cvtpd_epi32(a.val);
