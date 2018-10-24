@@ -748,7 +748,6 @@ OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_int8x16, v_mul_wrap, vmulq_s8)
 OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_uint16x8, v_mul_wrap, vmulq_u16)
 OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_int16x8, v_mul_wrap, vmulq_s16)
 
-// TODO: absdiff for signed integers
 OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_uint8x16, v_absdiff, vabdq_u8)
 OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_uint16x8, v_absdiff, vabdq_u16)
 OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_uint32x4, v_absdiff, vabdq_u32)
@@ -756,6 +755,12 @@ OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_float32x4, v_absdiff, vabdq_f32)
 #if CV_SIMD128_64F
 OPENCV_HAL_IMPL_NEON_BIN_FUNC(v_float64x2, v_absdiff, vabdq_f64)
 #endif
+
+/** Saturating absolute difference **/
+inline v_int8x16 v_absdiffs(const v_int8x16& a, const v_int8x16& b)
+{ return v_int8x16(vqabsq_s8(vqsubq_s8(a.val, b.val))); }
+inline v_int16x8 v_absdiffs(const v_int16x8& a, const v_int16x8& b)
+{ return v_int16x8(vqabsq_s16(vqsubq_s16(a.val, b.val))); }
 
 #define OPENCV_HAL_IMPL_NEON_BIN_FUNC2(_Tpvec, _Tpvec2, cast, func, intrin) \
 inline _Tpvec2 func(const _Tpvec& a, const _Tpvec& b) \

@@ -159,7 +159,7 @@ Most of these operations return only one value.
 ### Other math
 
 - Some frequent operations: @ref v_sqrt, @ref v_invsqrt, @ref v_magnitude, @ref v_sqr_magnitude
-- Absolute values: @ref v_abs, @ref v_absdiff
+- Absolute values: @ref v_abs, @ref v_absdiff, @ref v_absdiffs
 
 ### Conversions
 
@@ -199,6 +199,7 @@ Regular integers:
 |logical            | x | x | x | x | x | x |
 |min, max           | x | x | x | x | x | x |
 |absdiff            | x | x | x | x | x | x |
+|absdiffs           |   | x |   | x |   |   |
 |reduce             |   |   |   |   | x | x |
 |mask               | x | x | x | x | x | x |
 |pack               | x | x | x | x | x | x |
@@ -759,6 +760,19 @@ inline v_float64x2 v_absdiff(const v_float64x2& a, const v_float64x2& b)
     v_float64x2 c;
     for( int i = 0; i < c.nlanes; i++ )
         c.s[i] = _absdiff(a.s[i], b.s[i]);
+    return c;
+}
+
+/** @brief Saturating absolute difference
+
+Returns \f$ saturate(|a - b|) \f$ .
+For 8-, 16-bit signed integer source types. */
+template<typename _Tp, int n>
+inline v_reg<_Tp, n> v_absdiffs(const v_reg<_Tp, n>& a, const v_reg<_Tp, n>& b)
+{
+    v_reg<_Tp, n> c;
+    for( int i = 0; i < n; i++)
+        c.s[i] = saturate_cast<_Tp>(std::abs(a.s[i] - b.s[i]));
     return c;
 }
 

@@ -1045,33 +1045,42 @@ inline v_int8x16 v_mul_wrap(const v_int8x16& a, const v_int8x16& b)
     return v_reinterpret_as_s8(v_mul_wrap(v_reinterpret_as_u8(a), v_reinterpret_as_u8(b)));
 }
 
-#define OPENCV_HAL_IMPL_SSE_ABSDIFF_8_16(_Tpuvec, _Tpsvec, bits, smask32) \
-inline _Tpuvec v_absdiff(const _Tpuvec& a, const _Tpuvec& b) \
-{ \
-    return _Tpuvec(_mm_add_epi##bits(_mm_subs_epu##bits(a.val, b.val), _mm_subs_epu##bits(b.val, a.val))); \
-} \
-inline _Tpuvec v_absdiff(const _Tpsvec& a, const _Tpsvec& b) \
-{ \
-    __m128i smask = _mm_set1_epi32(smask32); \
-    __m128i a1 = _mm_xor_si128(a.val, smask); \
-    __m128i b1 = _mm_xor_si128(b.val, smask); \
-    return _Tpuvec(_mm_add_epi##bits(_mm_subs_epu##bits(a1, b1), _mm_subs_epu##bits(b1, a1))); \
-}
+/** Absolute difference **/
 
-OPENCV_HAL_IMPL_SSE_ABSDIFF_8_16(v_uint8x16, v_int8x16, 8, (int)0x80808080)
-OPENCV_HAL_IMPL_SSE_ABSDIFF_8_16(v_uint16x8, v_int16x8, 16, (int)0x80008000)
-
+inline v_uint8x16 v_absdiff(const v_uint8x16& a, const v_uint8x16& b)
+{ return v_add_wrap(a - b,  b - a); }
+inline v_uint16x8 v_absdiff(const v_uint16x8& a, const v_uint16x8& b)
+{ return v_add_wrap(a - b,  b - a); }
 inline v_uint32x4 v_absdiff(const v_uint32x4& a, const v_uint32x4& b)
-{
-    return v_max(a, b) - v_min(a, b);
-}
+{ return v_max(a, b) - v_min(a, b); }
 
+inline v_uint8x16 v_absdiff(const v_int8x16& a, const v_int8x16& b)
+{
+    v_int8x16 d = v_sub_wrap(a, b);
+    v_int8x16 m = a < b;
+    return v_reinterpret_as_u8(v_sub_wrap(d ^ m, m));
+}
+inline v_uint16x8 v_absdiff(const v_int16x8& a, const v_int16x8& b)
+{
+    return v_reinterpret_as_u16(v_sub_wrap(v_max(a, b), v_min(a, b)));
+}
 inline v_uint32x4 v_absdiff(const v_int32x4& a, const v_int32x4& b)
 {
-    __m128i d = _mm_sub_epi32(a.val, b.val);
-    __m128i m = _mm_cmpgt_epi32(b.val, a.val);
-    return v_uint32x4(_mm_sub_epi32(_mm_xor_si128(d, m), m));
+    v_int32x4 d = a - b;
+    v_int32x4 m = a < b;
+    return v_reinterpret_as_u32((d ^ m) - m);
 }
+
+/** Saturating absolute difference **/
+inline v_int8x16 v_absdiffs(const v_int8x16& a, const v_int8x16& b)
+{
+    v_int8x16 d = a - b;
+    v_int8x16 m = a < b;
+    return (d ^ m) - m;
+ }
+inline v_int16x8 v_absdiffs(const v_int16x8& a, const v_int16x8& b)
+{ return v_max(a, b) - v_min(a, b); }
+
 
 inline v_int32x4 v_fma(const v_int32x4& a, const v_int32x4& b, const v_int32x4& c)
 {
