@@ -1077,8 +1077,10 @@ struct scalar_loader_n<sizeof(float), OP, float, T2, v_float32>
         v_float32 r0 = op::r(v_src1, v_src2, scalar);
         v_float32 r1 = op::r(v_src1s, v_src2s, scalar);
 
+        #if CV_VERSION_MAJOR == 3
         r0 = op::pre(v_src2, r0);
         r1 = op::pre(v_src2s, r1);
+        #endif
 
         v_store(dst, r0);
         v_store(dst + step, r1);
@@ -1092,8 +1094,10 @@ struct scalar_loader_n<sizeof(float), OP, float, T2, v_float32>
         v_float32 r0 = op::r(v_src1, scalar);
         v_float32 r1 = op::r(v_src1s, scalar);
 
+        #if CV_VERSION_MAJOR == 3
         r0 = op::pre(v_src1, r0);
         r1 = op::pre(v_src1s, r1);
+        #endif
 
         v_store(dst, r0);
         v_store(dst + step, r1);
@@ -1183,8 +1187,10 @@ struct scalar_loader_n<sizeof(float), OP, float, double, v_float32>
         v_float32 r0 = r(v_src1, v_src2, scalar);
         v_float32 r1 = r(v_src1s, v_src2s, scalar);
 
+        #if CV_VERSION_MAJOR == 3
         r0 = op::pre(v_src2, r0);
         r1 = op::pre(v_src2s, r1);
+        #endif
 
         v_store(dst, r0);
         v_store(dst + step, r1);
@@ -1197,8 +1203,10 @@ struct scalar_loader_n<sizeof(float), OP, float, double, v_float32>
         v_float32 r0 = r(v_src1, scalar);
         v_float32 r1 = r(v_src1s, scalar);
 
+        #if CV_VERSION_MAJOR == 3
         r0 = op::pre(v_src1, r0);
         r1 = op::pre(v_src1s, r1);
+        #endif
 
         v_store(dst, r0);
         v_store(dst + step, r1);
@@ -1246,8 +1254,10 @@ struct scalar_loader_n<sizeof(double), OP, double, double, v_float64>
         v_float64 r0 = op::r(v_src1, v_src2, scalar);
         v_float64 r1 = op::r(v_src1s, v_src2s, scalar);
 
+        #if CV_VERSION_MAJOR == 3
         r0 = op::pre(v_src2, r0);
         r1 = op::pre(v_src2s, r1);
+        #endif
 
         v_store(dst, r0);
         v_store(dst + step, r1);
@@ -1260,8 +1270,10 @@ struct scalar_loader_n<sizeof(double), OP, double, double, v_float64>
         v_float64 r0 = op::r(v_src1, scalar);
         v_float64 r1 = op::r(v_src1s, scalar);
 
+        #if CV_VERSION_MAJOR == 3
         r0 = op::pre(v_src1, r0);
         r1 = op::pre(v_src1s, r1);
+        #endif
 
         v_store(dst, r0);
         v_store(dst + step, r1);
@@ -1578,6 +1590,7 @@ DEFINE_SIMD_F64(mul, mul_loop_d)
 
 ///////////////////////////// Operations //////////////////////////////////
 
+#if CV_VERSION_MAJOR == 3
 template<typename T1, typename Tvec>
 struct op_div_f
 {
@@ -1587,8 +1600,18 @@ struct op_div_f
         return v_select(b == v_zero, v_zero, a / b);
     }
     static inline T1 r(T1 a, T1 b)
-    { return b != (T1)0 ? c_div(a, b) : (T1)0; }
+    { return b != (T1)0 ? a / b : (T1)0; }
 };
+#else
+template<typename T1, typename Tvec>
+struct op_div_f
+{
+    static inline Tvec r(const Tvec& a, const Tvec& b)
+    { return a / b; }
+    static inline T1 r(T1 a, T1 b)
+    { return a / b; }
+};
+#endif
 
 template<typename T1, typename T2, typename Tvec>
 struct op_div_scale
