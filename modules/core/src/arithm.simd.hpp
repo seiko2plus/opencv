@@ -765,7 +765,7 @@ static void cmp_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
     }
 }
 
-#if !CV_SIMD_64F
+#if CV_SIMD && !CV_SIMD_64F
 template< template<typename T1, typename Tvec> class OP, typename T1>
 static void cmp_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t step2, uchar* dst, size_t step, int width, int height)
 {
@@ -1579,12 +1579,15 @@ DEFINE_SIMD_F64(mul, mul_loop_d)
 ///////////////////////////// Operations //////////////////////////////////
 
 template<typename T1, typename Tvec>
-struct op_div
+struct op_div_f
 {
     static inline Tvec r(const Tvec& a, const Tvec& b)
-    { return a / b; }
+    {
+        const Tvec v_zero = Tvec();
+        return v_select(b == v_zero, v_zero, a / b);
+    }
     static inline T1 r(T1 a, T1 b)
-    { return c_div(a, b); }
+    { return b != (T1)0 ? c_div(a, b) : (T1)0; }
 };
 
 template<typename T1, typename T2, typename Tvec>
@@ -1630,14 +1633,7 @@ static void div_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
               T1* dst, size_t step, int width, int height, const double* scalar)
 {
     float fscalar = (float)*scalar;
-    /*
-    todo: add new intrinsics for integer divide
-    if (std::fabs(fscalar - 1.0f) <= FLT_EPSILON)
-    {
-        bin_loop<op_div, T1, Tvec>(src1, step1, src2, step2, dst, step, width, height);
-        return;
-    }
-    */
+    // todo: add new intrinsics for integer divide
     scalar_loop<op_div_scale, T1, float, Tvec>(src1, step1, src2, step2,
         dst, step, width, height, &fscalar);
 }
@@ -1649,7 +1645,7 @@ void div_loop<float, v_float32>(const float* src1, size_t step1, const float* sr
     float fscalar = (float)*scalar;
     if (std::fabs(fscalar - 1.0f) <= FLT_EPSILON)
     {
-        bin_loop<op_div, float, v_float32>(src1, step1, src2, step2, dst, step, width, height);
+        bin_loop<op_div_f, float, v_float32>(src1, step1, src2, step2, dst, step, width, height);
     }
     else
     {
@@ -1664,7 +1660,7 @@ void div_loop<double, v_float64>(const double* src1, size_t step1, const double*
 {
     if (*scalar == 1.0)
     {
-        BIN_LOOP64F<op_div, double, v_float64>(src1, step1, src2, step2, dst, step, width, height);
+        BIN_LOOP64F<op_div_f, double, v_float64>(src1, step1, src2, step2, dst, step, width, height);
     }
     else
     {
