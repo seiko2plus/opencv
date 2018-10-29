@@ -195,9 +195,6 @@ inline uchar c_mul<uchar, float>(uchar a, uchar b, float scalar)
 template<typename T1, typename T2>
 static inline T2 c_div(T1 a, T2 b)
 { return saturate_cast<T2>(a / b); }
-template<>
-inline uchar c_div<uchar, uchar>(uchar a, uchar b)
-{ return CV_FAST_CAST_8U(a / b); }
 // recip
 template<>
 inline uchar c_div<float, uchar>(float a, uchar b)
@@ -720,8 +717,8 @@ static void cmp_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
     #if CV_ENABLE_UNROLLED || CV_SIMD_WIDTH > 16
         for (; x <= width - 4; x += 4)
         {
-            T1 t0 = op::r(src1[x], src2[x]);
-            T1 t1 = op::r(src1[x + 1], src2[x + 1]);
+            uchar t0 = op::r(src1[x], src2[x]);
+            uchar t1 = op::r(src1[x + 1], src2[x + 1]);
             dst[x] = t0; dst[x + 1] = t1;
 
             t0 = op::r(src1[x + 2], src2[x + 2]);
@@ -765,7 +762,7 @@ static void cmp_loop(const T1* src1, size_t step1, const T1* src2, size_t step2,
     }
 }
 
-#if CV_SIMD && !CV_SIMD_64F
+#if !CV_SIMD_64F
 template< template<typename T1, typename Tvec> class OP, typename T1>
 static void cmp_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t step2, uchar* dst, size_t step, int width, int height)
 {
@@ -780,8 +777,8 @@ static void cmp_loop_nosimd(const T1* src1, size_t step1, const T1* src2, size_t
 
         for (; x <= width - 4; x += 4)
         {
-            T1 t0 = op::r(src1[x], src2[x]);
-            T1 t1 = op::r(src1[x + 1], src2[x + 1]);
+            uchar t0 = op::r(src1[x], src2[x]);
+            uchar t1 = op::r(src1[x + 1], src2[x + 1]);
             dst[x] = t0; dst[x + 1] = t1;
 
             t0 = op::r(src1[x + 2], src2[x + 2]);
