@@ -735,18 +735,10 @@ OPENCV_HAL_IMPL_SSE_BIN_OP(-, v_int64x2, _mm_sub_epi64)
     inline _Tpvec& operator *= (_Tpvec& a, const _Tpvec& b)      \
     { a = a * b; return a; }
 
+OPENCV_HAL_IMPL_SSE_MUL_SAT(v_uint8x16, v_uint16x8)
 OPENCV_HAL_IMPL_SSE_MUL_SAT(v_int8x16,  v_int16x8)
 OPENCV_HAL_IMPL_SSE_MUL_SAT(v_uint16x8, v_uint32x4)
 OPENCV_HAL_IMPL_SSE_MUL_SAT(v_int16x8,  v_int32x4)
-
-inline v_uint8x16 operator * (const v_uint8x16& a, const v_uint8x16& b)
-{
-    v_uint16x8 c, d;
-    v_mul_expand(a, b, c, d);
-    return v_pack_u(v_reinterpret_as_s16(c), v_reinterpret_as_s16(d));
-}
-inline v_uint8x16& operator *= (v_uint8x16& a, const v_uint8x16& b)
-{ a = a * b; return a; }
 
 //  Multiply and expand
 inline void v_mul_expand(const v_uint8x16& a, const v_uint8x16& b,

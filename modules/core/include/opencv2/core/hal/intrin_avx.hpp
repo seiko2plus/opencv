@@ -661,7 +661,7 @@ inline v_uint8x32 operator * (const v_uint8x32& a, const v_uint8x32& b)
 {
     v_uint16x16 c, d;
     v_mul_expand(a, b, c, d);
-    return v_pack_u(v_reinterpret_as_s16(c), v_reinterpret_as_s16(d));
+    return v_pack(c, d);
 }
 inline v_int8x32 operator * (const v_int8x32& a, const v_int8x32& b)
 {
