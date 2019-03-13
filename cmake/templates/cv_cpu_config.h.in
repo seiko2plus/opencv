@@ -3,3 +3,6 @@
 
 // OpenCV supported CPU dispatched features
 @OPENCV_CPU_DISPATCH_DEFINITIONS_CONFIGMAKE@
+
+// OpenCV CPU runtime checks
+@OPENCV_CPU_RUNTIME_DEFINITIONS_CONFIGMAKE@
