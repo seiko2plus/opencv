@@ -40,12 +40,12 @@ struct v_uint32x16;
 struct v_int32x16;
 struct v_uint64x8;
 struct v_int64x8;
-struct v_float32x16;
-struct v_float64x8;
-struct v_mask8x64;
-struct v_mask16x32;
-struct v_mask32x16;
-struct v_mask64x8;
+class v_float32x16;
+class v_float64x8;
+class v_mask8x64;
+class v_mask16x32;
+class v_mask32x16;
+class v_mask64x8;
 #elif CV__SIMD_FORWARD == 256
 // 256
 #define __CV_VX(fun)   v256_##fun

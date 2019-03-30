@@ -17,8 +17,8 @@ CV_CPU_OPTIMIZATION_HAL_NAMESPACE_BEGIN
 
 #include "emulate.hpp"
 #include "types.hpp"
-/*
 #include "memory.hpp"
+/*
 #include "operators.hpp"
 #include "arithmetic.hpp"
 #include "math.hpp"
