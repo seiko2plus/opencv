@@ -1320,9 +1320,7 @@ inline v_int32x4 v_dotprod(const v_int16x8& a, const v_int16x8& b,
                            const v_int32x4& c, const bool ignore_order = false)
 {
     CV_UNUSED(ignore_order);
-    // `vmsumshm` and `vmsumubm` showing a loss of performance when
-    // when the same register is used in `VRT` and `VRC`
-    return v_int32x4(vec_msum(a.val, b.val, vec_int4_z)) + c;
+    return v_int32x4(vec_msum(a.val, b.val, c.val));
 }
 // 32 >> 64
 inline v_int64x2 v_dotprod(const v_int32x4& a, const v_int32x4& b, const bool ignore_order = false)
@@ -1341,7 +1339,7 @@ inline v_uint32x4 v_dotprod_expand(const v_uint8x16& a, const v_uint8x16& b,
                                    const v_uint32x4& c, const bool ignore_order = false)
 {
     CV_UNUSED(ignore_order);
-    return v_uint32x4(vec_msum(a.val, b.val, vec_uint4_z)) + c;
+    return v_uint32x4(vec_msum(a.val, b.val, c.val));
 }
 inline v_uint32x4 v_dotprod_expand(const v_uint8x16& a, const v_uint8x16& b, const bool ignore_order = false)
 {
@@ -1367,7 +1365,20 @@ inline v_int32x4 v_dotprod_expand(const v_int8x16& a, const v_int8x16& b, const 
 
 inline v_int32x4 v_dotprod_expand(const v_int8x16& a, const v_int8x16& b,
                                   const v_int32x4& c, const bool ignore_order = false)
-{ return v_dotprod_expand(a, b, ignore_order) + c; }
+{
+    vec_short8 a0, a1, b0, b1;
+    if (ignore_order) {
+        a0 = vec_unpackh(a.val); a1 = vec_unpackl(a.val);
+        b0 = vec_unpackh(b.val); b1 = vec_unpackl(b.val);
+    } else {
+        const vec_ushort8 eight = vec_ushort8_sp(8);
+        a0 = vec_sra((vec_short8)vec_sld(a.val, a.val, 1), eight); // even
+        a1 = vec_sra((vec_short8)a.val, eight); // odd
+        b0 = vec_sra((vec_short8)vec_sld(b.val, b.val, 1), eight);
+        b1 = vec_sra((vec_short8)b.val, eight);
+    }
+    return v_int32x4(vec_msum(a0, b0, vec_msum(a1, b1, c.val)));
+}
 
 // 16 >> 64
 inline v_uint64x2 v_dotprod_expand(const v_uint16x8& a, const v_uint16x8& b, const bool ignore_order = false)
